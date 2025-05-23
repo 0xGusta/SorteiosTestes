@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteios 0xGus - Testnet Monad</title>
+    <link rel="icon" href="/images/favicon.ico">
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Ancizar+Sans:ital,wght@0,100..1000;1,100..1000&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+        body {
+            font-family: 'Ancizar Sans', sans-serif;
+        }
+        h1, h2, h3 {
+            font-family: 'Montserrat', sans-serif;
+        }
+        .image-3d {
+            transition: transform 0.1s ease-out;
+            transform-style: preserve-3d;
+        }
+        .truncate-address {
+            display: inline-block;
+            width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1f2937;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            text-align: center;
+        }
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 999;
+        }
+        #cookieConsent {
+            padding: 20px;
+            font-size: 1.1rem;
+        }
+        #cookieConsent p {
+            margin-bottom: 10px;
+        }
+        #participantsSection {
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        #participantsList {
+            list-style: none;
+            padding: 0;
+        }
+        #participantsList li {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: linear-gradient(to right, #374151, #2d3748);
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        #participantsList li:hover {
+            transform: translateY(-2px);
+        }
+        #participantsList li::before {
+            content: attr(data-rank) "º";
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            background: #15803d;
+            color: white;
+            border-radius: 50%;
+            margin-right: 12px;
+            font-weight: bold;
+        }
+        #participantsSection::-webkit-scrollbar {
+            width: 8px;
+        }
+        #participantsSection::-webkit-scrollbar-track {
+            background: #2d3748;
+            border-radius: 4px;
+        }
+        #participantsSection::-webkit-scrollbar-thumb {
+            background: #16a34a;
+            border-radius: 4px;
+        }
+        #participantsSection::-webkit-scrollbar-thumb:hover {
+            background: #15803d;
+        }
+        @media (max-width: 768px) {
+            #participantsSection {
+                padding: 12px;
+            }
+            #participantsList li {
+                font-size: 0.9rem;
+                padding: 10px;
+            }
+            #participantsList li::before {
+                width: 24px;
+                height: 24px;
+                line-height: 24px;
+                font-size: 0.8rem;
+            }
+        }
+        #logo {
+            border-radius: 20%;
+            width: 128px;
+            height: 128px;
+        }
+        #walletMenu {
+            z-index: 1001;
+        }
+        @media (max-width: 768px) {
+            #walletMenu {
+                width: 100%;
+                right: 0;
+            }
+        }
+        .action-button {
+            background-color: #16a34a;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover:not(:disabled) {
+            background-color: #15803d;
+        }
+        .secondary-button {
+            background-color: #4b5563;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            transition: background-color 0.2s;
+        }
+        .secondary-button:hover:not(:disabled) {
+            background-color: #374151;
+        }
+        .disabled-button {
+            background-color: #4b5563;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: not-allowed;
+        }
+        .error-text {
+            color: #f87171;
+        }
+        .loader {
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #16a34a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen flex flex-col">
+    <div id="popupOverlay" class="popup-overlay"></div>
+    <div id="errorPopup" class="popup">
+        <p id="errorMessage"></p>
+        <button id="closeErrorPopup" class="mt-4 secondary-button">Fechar</button>
+    </div>
+    <div id="processingPopup" class="popup">
+        <p>Transação em andamento...</p>
+        <div class="loader"></div>
+    </div>
+    <div id="metamaskMobilePopup" class="popup">
+        <p>Abra este site no navegador embutido do MetaMask para continuar.</p>
+        <p class="text-sm text-gray-400 mt-2">No app MetaMask, clique no ícone do navegador e cole o URL do site.</p>
+        <button id="closeMetamaskMobilePopup" class="mt-4 secondary-button">Fechar</button>
+    </div>
+    <div id="thanksPopup" class="popup">
+        <p>Obrigado por ajudar a comunidade Monad. Boa Sorte!</p>
+        <button id="closeThanksPopup" class="mt-4 action-button">Fechar</button>
+    </div>
+    <div id="usernamePopup" class="popup">
+        <p>Por favor, insira seu username do X:</p>
+        <input id="twitterUsernameInput" type="text" placeholder="username ou @username" class="border border-gray-600 bg-gray-800 text-white p-2 w-full mb-2 rounded">
+        <button id="submitUsername" class="mt-4 action-button">Enviar</button>
+    </div>
+    <div id="cookieConsent" class="popup">
+        <p>Este site usa cookies para melhorar sua experiência.</p>
+        <button id="acceptCookies" class="action-button">Aceitar</button>
+    </div>
+    <header class="bg-gray-800 w-full py-4 shadow-lg">
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <img id="logo" src="/images/iconmain.png" alt="Sorteios 0xGus" width="128" height="128">
+            <div class="relative">
+                <button id="walletButton" class="action-button">Conectar Carteira</button>
+                <div id="walletMenu" class="hidden absolute right-0 mt-2 w-48 bg-gray-700 text-white rounded-lg shadow-lg">
+                    <div class="p-2 border-b border-gray-600">
+                        <p><strong>Endereço:</strong> <span id="userAddress" class="truncate-address"></span></p>
+                    </div>
+                    <div class="p-2 border-b border-gray-600">
+                        <p><strong>X:</strong> <span id="xUsernameDisplay"></span></p>
+                        <p class="text-sm text-gray-400">Errou o @? Reconecte a wallet e compre mais 1 ticket ou entre em contato com <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-600">0xGus</a></p>
+                    </div>
+                    <button id="disconnectWallet" class="w-full text-left p-2 secondary-button">Desconectar Carteira</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 flex-1">
+        <div class="md:w-1/2">
+            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 1 + 5 MON</h2>
+            <div class="overflow-hidden rounded-lg">
+                <img id="sorteioImage" src="/images/mv1.avif" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
+            </div>
+        </div>
+        <div class="md:w-1/2">
+            <h2 class="text-xl font-semibold mb-4 text-white">Comprar Tickets</h2>
+            <p class="text-gray-400 mb-2">Data do sorteio: 30 de maio às 11h BRT</p>
+            <div class="bg-gray-800 p-6 rounded-lg">
+                <p><strong>Preço do Ticket:</strong> <span id="ticketPrice">0.2</span> MON</p>
+                <p><strong>Carteiras Participantes:</strong> <span id="participantCount">0</span></p>
+                <p><strong>Seus Tickets:</strong> <span id="ticketCount">Conecte sua Wallet</span></p>
+                <div class="mt-4">
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <label for="ticketQuantity" class="block text-sm font-medium">Quantidade de Tickets:</label>
+                            <input id="ticketQuantity" type="number" min="1" step="1" value="1" class="border border-gray-600 bg-gray-800 text-white p-2 w-24 rounded">
+                            <p id="ticketQuantityError" class="error-text text-sm mt-1 hidden">Por favor, insira um número inteiro maior ou igual a 1.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Saldo:</label>
+                            <p id="walletBalance" class="text-gray-400">0 MON</p>
+                        </div>
+                    </div>
+                    <p><strong>Total:</strong> <span id="totalCost">0.2</span> MON</p>
+                    <p id="raffleStatus" class="error-text mt-2 hidden">Sorteio Fechado</p>
+                    <button id="buyTickets" class="disabled-button w-full mt-2" disabled>Conecte sua wallet primeiro</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    <section class="container mx-auto px-4 py-8">
+        <div class="md:w-1/2 mx-auto">
+            <div id="participantsSection">
+                <h2 class="text-xl font-semibold mb-4 text-white">Ranking de Participantes (Top 5)</h2>
+                <ul id="participantsList" class="bg-gray-800 p-4 rounded-lg list-none"></ul>
+            </div>
+        </div>
+    </section>
+    <footer class="bg-gray-800 text-white w-full py-4">
+        <div class="container mx-auto px-4 text-center">
+            <p>Desenvolvido por <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-600">0xGus</a></p>
+        </div>
+    </footer>
+    <script>
+        const MONAD_TESTNET = {
+            chainId: "0x279f",
+            chainName: "Monad Testnet",
+            rpcUrls: ["https://testnet-rpc.monad.xyz"],
+            nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+            blockExplorerUrls: ["https://testnet.monadexplorer.com"]
+        };
+        const CONTRACT_ADDRESS = "0x12A322c1C44CD5b90f4BE8E13F2e75BbAAb96799";
+        const CONTRACT_ABI = [
+            {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"participant","type":"address"},{"indexed":false,"internalType":"string","name":"newAlias","type":"string"}],"name":"AliasUpdated","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"raffleNumber","type":"uint256"}],"name":"RaffleStarted","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"participant","type":"address"},{"indexed":false,"internalType":"uint256","name":"quantity","type":"uint256"},{"indexed":false,"internalType":"string","name":"_alias","type":"string"}],"name":"TicketPurchased","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newPrice","type":"uint256"}],"name":"TicketPriceUpdated","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"winner","type":"address"},{"indexed":false,"internalType":"uint256","name":"raffleNumber","type":"uint256"}],"name":"WinnerDrawn","type":"event"},
+            {"inputs":[{"internalType":"string","name":"_alias","type":"string"}],"name":"buyTicket","outputs":[],"stateMutability":"payable","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"_quantity","type":"uint256"},{"internalType":"string","name":"_alias","type":"string"}],"name":"buyTickets","outputs":[],"stateMutability":"payable","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"_quantity","type":"uint256"},{"internalType":"string","name":"_newAlias","type":"string"}],"name":"buyTicketsWithNewAlias","outputs":[],"stateMutability":"payable","type":"function"},
+            {"inputs":[],"name":"drawWinner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"address","name":"_participant","type":"address"}],"name":"getAlias","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"getContractBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"getParticipants","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"getPastWinners","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"address","name":"_participant","type":"address"}],"name":"getTicketCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"isRaffleOpen","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"raffleCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"refundParticipants","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"startRaffle","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setTicketPrice","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"ticketPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"string","name":"_newAlias","type":"string"}],"name":"updateAlias","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"stateMutability":"payable","type":"receive"}
+        ];
+        let web3, contract, userAddress, isWalletConnected = false, isConnecting = false, isProcessing = false;
+        let xUsername = "";
+        let acceptedCookies = false;
+        let cache = { data: null, timestamp: 0, validDuration: 60000 };
+
+        async function init() {
+            try {
+                console.log("Inicializando Web3 com RPC público...");
+                web3 = new Web3(new Web3.providers.HttpProvider(MONAD_TESTNET.rpcUrls[0]));
+                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                console.log("Contrato inicializado:", CONTRACT_ADDRESS);
+            } catch (error) {
+                console.error("Erro ao inicializar Web3:", error);
+                return;
+            }
+            document.getElementById("walletButton").addEventListener("click", debounce(connectWallet, 500));
+            document.getElementById("disconnectWallet").addEventListener("click", disconnectWallet);
+            document.getElementById("buyTickets").addEventListener("click", debounce(handleBuyTickets, 500));
+            document.getElementById("ticketQuantity").addEventListener("input", updateTotalCost);
+            document.getElementById("acceptCookies").addEventListener("click", acceptCookies);
+            document.getElementById("closeErrorPopup").addEventListener("click", () => hidePopup("errorPopup"));
+            document.getElementById("closeMetamaskMobilePopup").addEventListener("click", () => hidePopup("metamaskMobilePopup"));
+            document.getElementById("closeThanksPopup").addEventListener("click", () => hidePopup("thanksPopup"));
+            document.getElementById("submitUsername").addEventListener("click", submitTwitterUsername);
+            setupImage3DEffect();
+            setupMenuCloseListener();
+            if (!Cookies.get("acceptedCookies") && !acceptedCookies) {
+                document.getElementById("cookieConsent").style.display = "block";
+                document.getElementById("popupOverlay").style.display = "block";
+            }
+            if (Cookies.get("userAddress")) {
+                userAddress = Cookies.get("userAddress");
+                isWalletConnected = true;
+                xUsername = Cookies.get("xUsername") || "";
+                document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
+                document.getElementById("userAddress").innerText = userAddress;
+                document.getElementById("xUsernameDisplay").innerText = xUsername || "Não definido";
+            }
+            await updateUI();
+            setInterval(updateUI, 10000);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        function isMetaMaskBrowser() {
+            return navigator.userAgent.includes("MetaMask");
+        }
+
+        async function waitForEthereum(maxAttempts = 3, delay = 2000) {
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                if (window.ethereum) {
+                    return true;
+                }
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            return false;
+        }
+
+        async function connectWallet() {
+            if (isConnecting) {
+                showErrorPopup("Uma solicitação de conexão está pendente. Por favor, aguarde.");
+                return;
+            }
+            isConnecting = true;
+            console.log("Tentando conectar carteira...");
+            try {
+                if (isMobileDevice() && !isMetaMaskBrowser()) {
+                    console.log("Dispositivo móvel detectado, abrindo MetaMask...");
+                    window.location.href = "metamask://";
+                    showMetamaskMobilePopup();
+                    const ethereumAvailable = await waitForEthereum(3, 2000);
+                    if (!ethereumAvailable) {
+                        console.error("window.ethereum não injetado após deeplink.");
+                        showErrorPopup("Não foi possível detectar o MetaMask. Use o navegador embutido do MetaMask.");
+                        return;
+                    }
+                    web3 = new Web3(window.ethereum);
+                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                } else if (!isMobileDevice() && (!window.ethereum || !window.ethereum.isMetaMask)) {
+                    console.log("MetaMask não detectado no desktop.");
+                    showErrorPopup("MetaMask não está instalado. Instale a extensão MetaMask para continuar.");
+                    return;
+                } else {
+                    console.log("MetaMask detectado, conectando...");
+                    web3 = new Web3(window.ethereum);
+                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                }
+
+                const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+                userAddress = accounts[0];
+                console.log("Carteira conectada:", userAddress);
+                const chainId = await window.ethereum.request({ method: "eth_chainId" });
+                if (chainId !== MONAD_TESTNET.chainId) {
+                    console.log("Trocando para Monad Testnet...");
+                    try {
+                        await window.ethereum.request({
+                            method: "wallet_switchEthereumChain",
+                            params: [{ chainId: MONAD_TESTNET.chainId }],
+                        });
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            console.log("Adicionando Monad Testnet...");
+                            await window.ethereum.request({
+                                method: "wallet_addEthereumChain",
+                                params: [{
+                                    chainId: MONAD_TESTNET.chainId,
+                                    chainName: MONAD_TESTNET.chainName,
+                                    rpcUrls: MONAD_TESTNET.rpcUrls,
+                                    nativeCurrency: MONAD_TESTNET.nativeCurrency,
+                                    blockExplorerUrls: MONAD_TESTNET.blockExplorerUrls
+                                }],
+                            });
+                        } else {
+                            console.error("Erro ao trocar de rede:", switchError);
+                            throw switchError;
+                        }
+                    }
+                }
+                isWalletConnected = true;
+                document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
+                document.getElementById("walletMenu").classList.add("hidden");
+                document.getElementById("userAddress").innerText = userAddress;
+                Cookies.set("userAddress", userAddress, { expires: 7 });
+                if (!xUsername) {
+                    showUsernamePopup();
+                } else {
+                    document.getElementById("xUsernameDisplay").innerText = xUsername;
+                }
+                updateBuyButton();
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao conectar MetaMask:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a conexão no MetaMask. Autorize a conexão para continuar.");
+                } else {
+                    showErrorPopup("Erro ao conectar a carteira. Tente novamente.");
+                }
+            } finally {
+                isConnecting = false;
+            }
+        }
+
+        function disconnectWallet() {
+            userAddress = null;
+            isWalletConnected = false;
+            xUsername = "";
+            Cookies.remove("userAddress");
+            Cookies.remove("xUsername");
+            document.getElementById("walletButton").innerText = "Conectar Carteira";
+            document.getElementById("walletButton").classList.remove("disabled-button");
+            document.getElementById("walletButton").classList.add("action-button");
+            document.getElementById("walletMenu").classList.add("hidden");
+            document.getElementById("userAddress").innerText = "";
+            document.getElementById("xUsernameDisplay").innerText = "";
+            document.getElementById("walletBalance").innerText = "0 MON";
+            updateBuyButton();
+            cache = { data: null, timestamp: 0, validDuration: 60000 };
+            updateUI();
+        }
+
+        function normalizeXUsername(username) {
+            return username.startsWith("@") ? username : `@${username}`;
+        }
+
+        function isValidXUsername(username) {
+            const cleanUsername = username.startsWith("@") ? username.slice(1) : username;
+            return cleanUsername.length > 0 && /^[a-zA-Z0-9_]+$/.test(cleanUsername);
+        }
+
+        function showUsernamePopup() {
+            document.getElementById("twitterUsernameInput").value = xUsername || "";
+            document.getElementById("usernamePopup").style.display = "block";
+            document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        function showMetamaskMobilePopup() {
+            document.getElementById("metamaskMobilePopup").style.display = "block";
+            document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        function submitTwitterUsername() {
+            const username = document.getElementById("twitterUsernameInput").value;
+            if (!isValidXUsername(username)) {
+                showErrorPopup("Insira um username válido do X (ex.: @username, apenas letras, números e sublinhados).");
+                return;
+            }
+            xUsername = normalizeXUsername(username);
+            Cookies.set("xUsername", xUsername, { expires: 7 });
+            document.getElementById("xUsernameDisplay").innerText = xUsername;
+            hidePopup("usernamePopup");
+        }
+
+        function truncateAddress(address) {
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        }
+
+        async function updateTotalCost() {
+            const inputValue = document.getElementById("ticketQuantity").value;
+            const quantityError = document.getElementById("ticketQuantityError");
+            let quantity = parseFloat(inputValue);
+            if (!inputValue || isNaN(quantity) || quantity < 1 || !Number.isInteger(quantity)) {
+                quantityError.classList.remove("hidden");
+                quantity = 1;
+            } else {
+                quantityError.classList.add("hidden");
+                quantity = Math.floor(quantity);
+            }
+            let ticketPrice;
+            if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
+                ticketPrice = cache.data.ticketPrice;
+            } else {
+                try {
+                    ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+                    cache.data = cache.data || {};
+                    cache.data.ticketPrice = ticketPrice;
+                    cache.timestamp = Date.now();
+                } catch (error) {
+                    console.error("Erro ao obter ticketPrice:", error);
+                    ticketPrice = "0";
+                }
+            }
+            const total = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice));
+            document.getElementById("totalCost").innerText = web3.utils.fromWei(total, "ether");
+        }
+
+        async function updateWalletBalance() {
+            if (!userAddress || !isWalletConnected) {
+                document.getElementById("walletBalance").innerText = "0 MON";
+                return;
+            }
+            try {
+                const balance = await web3.eth.getBalance(userAddress);
+                document.getElementById("walletBalance").innerText = `${parseFloat(web3.utils.fromWei(balance, "ether")).toFixed(2)} MON`;
+            } catch (error) {
+                console.error("Erro ao obter saldo:", error);
+                document.getElementById("walletBalance").innerText = "Erro";
+            }
+        }
+
+        async function retryCall(callFn, maxRetries = 3, baseDelay = 1000) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    return await callFn();
+                } catch (error) {
+                    console.error(`Tentativa ${attempt} falhou:`, error);
+                    if (error.message.includes("429") || error.message.includes("request limit reached")) {
+                        if (attempt === maxRetries) {
+                            console.error("Limite de requisições atingido.");
+                            throw new Error("Limite de requisições atingido. Tente novamente mais tarde.");
+                        }
+                        const delay = baseDelay * Math.pow(2, attempt - 1);
+                        console.warn(`Erro 429, tentando novamente após ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        function updateBuyButton(isRaffleOpen = true) {
+            const buyButton = document.getElementById("buyTickets");
+            const raffleStatus = document.getElementById("raffleStatus");
+            if (!isWalletConnected) {
+                buyButton.innerText = "Conecte sua wallet primeiro";
+                buyButton.disabled = true;
+                buyButton.classList.remove("action-button");
+                buyButton.classList.add("disabled-button");
+                buyButton.onclick = null;
+                raffleStatus.classList.add("hidden");
+            } else if (!isRaffleOpen) {
+                buyButton.innerText = "Comprar Tickets";
+                buyButton.disabled = true;
+                buyButton.classList.remove("action-button");
+                buyButton.classList.add("disabled-button");
+                buyButton.onclick = null;
+                raffleStatus.classList.remove("hidden");
+            } else {
+                buyButton.innerText = "Comprar Tickets";
+                buyButton.disabled = false;
+                buyButton.classList.remove("disabled-button");
+                buyButton.classList.add("action-button");
+                buyButton.onclick = debounce(handleBuyTickets, 500);
+                raffleStatus.classList.add("hidden");
+            }
+        }
+
+        async function handleBuyTickets() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            if (!isWalletConnected) {
+                showErrorPopup("Conecte sua carteira primeiro.");
+                return;
+            }
+            isProcessing = true;
+            showProcessingPopup();
+            try {
+                const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                if (!isRaffleOpen) {
+                    showErrorPopup("O sorteio está fechado.");
+                    return;
+                }
+                const alias = xUsername;
+                const quantity = Math.floor(parseFloat(document.getElementById("ticketQuantity").value));
+                if (isNaN(quantity) || quantity < 1 || !Number.isInteger(quantity)) {
+                    showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
+                    return;
+                }
+                if (!alias || !isValidXUsername(alias)) {
+                    showErrorPopup("Username do X inválido. Insira um username válido.");
+                    return;
+                }
+                const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+                const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
+                console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
+                await contract.methods.buyTickets(quantity, alias).send({
+                    from: userAddress,
+                    value: totalValue
+                });
+                showThanksPopup();
+                cache = { data: null, timestamp: 0, validDuration: 60000 };
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao comprar tickets:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação no MetaMask. Autorize a transação para continuar.");
+                } else {
+                    showErrorPopup("Erro ao processar a compra de tickets. Tente novamente.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+            }
+        }
+
+        function setupMenuCloseListener() {
+            document.addEventListener("click", (e) => {
+                const walletButton = document.getElementById("walletButton");
+                const walletMenu = document.getElementById("walletMenu");
+                if (!walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
+                    walletMenu.classList.add("hidden");
+                } else if (walletButton.contains(e.target) && isWalletConnected) {
+                    walletMenu.classList.toggle("hidden");
+                }
+            });
+        }
+
+        function showErrorPopup(message) {
+            console.log("Exibindo erro:", message);
+            document.getElementById("errorMessage").innerText = message;
+            document.getElementById("errorPopup").style.display = "block";
+            document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        function showProcessingPopup() {
+            document.getElementById("processingPopup").style.display = "block";
+            document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        function showThanksPopup() {
+            document.getElementById("thanksPopup").style.display = "block";
+            document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        function hidePopup(popupId) {
+            document.getElementById(popupId).style.display = "none";
+            if (popupId === "thanksPopup") {
+                document.getElementById("errorPopup").style.display = "none";
+                document.getElementById("processingPopup").style.display = "none";
+                document.getElementById("metamaskMobilePopup").style.display = "none";
+            }
+            if (document.getElementById("errorPopup").style.display !== "block" &&
+                document.getElementById("processingPopup").style.display !== "block" &&
+                document.getElementById("metamaskMobilePopup").style.display !== "block" &&
+                document.getElementById("thanksPopup").style.display !== "block" &&
+                document.getElementById("usernamePopup").style.display !== "block" &&
+                document.getElementById("cookieConsent").style.display !== "block") {
+                document.getElementById("popupOverlay").style.display = "none";
+            }
+        }
+
+        function acceptCookies() {
+            acceptedCookies = true;
+            Cookies.set("acceptedCookies", "true", { expires: 365 });
+            hidePopup("cookieConsent");
+        }
+
+        function setupImage3DEffect() {
+            const image = document.getElementById("sorteioImage");
+            const imageRect = image.getBoundingClientRect();
+            image.addEventListener("mousemove", (e) => {
+                const x = e.clientX - imageRect.left;
+                const y = e.clientY - imageRect.top;
+                const centerX = imageRect.width / 2;
+                const centerY = imageRect.height / 2;
+                const maxTilt = 20;
+                const tiltX = ((centerY - y) / centerY) * maxTilt;
+                const tiltY = ((x - centerX) / centerX) * maxTilt;
+                image.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+            });
+            image.addEventListener("mouseleave", () => {
+                image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
+            });
+        }
+
+        async function updateUI() {
+            try {
+                let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false;
+                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
+                    ({ ticketPrice, ticketCount, participants, isRaffleOpen } = cache.data);
+                } else {
+                    try {
+                        console.log("Lendo ticketPrice...");
+                        ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+                    } catch (error) {
+                        console.error("Erro ao ler ticketPrice:", error);
+                    }
+                    try {
+                        console.log("Lendo participantes...");
+                        participants = await retryCall(() => contract.methods.getParticipants().call());
+                    } catch (error) {
+                        console.error("Erro ao ler participantes:", error);
+                    }
+                    try {
+                        console.log("Lendo status do sorteio...");
+                        isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                    } catch (error) {
+                        console.error("Erro ao ler isRaffleOpen:", error);
+                    }
+                    if (userAddress && isWalletConnected) {
+                        try {
+                            console.log("Lendo ticketCount para:", userAddress);
+                            ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
+                        } catch (error) {
+                            console.error("Erro ao ler ticketCount:", error);
+                        }
+                    }
+                    cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen };
+                    cache.timestamp = Date.now();
+                }
+                document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                document.getElementById("participantCount").innerText = participants.length;
+                document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                if (isWalletConnected) {
+                    await updateTotalCost();
+                    await updateWalletBalance();
+                    updateBuyButton(isRaffleOpen);
+                } else {
+                    document.getElementById("walletBalance").innerText = "0 MON";
+                    document.getElementById("totalCost").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    updateBuyButton(isRaffleOpen);
+                }
+                const participantsList = document.getElementById("participantsList");
+                const participantData = [];
+                const uniqueParticipants = [...new Set(participants)];
+                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+                    const participant = uniqueParticipants[i];
+                    if (!web3.utils.isAddress(participant)) continue;
+                    let alias = "Desconhecido";
+                    let count = 0;
+                    try {
+                        alias = await retryCall(() => contract.methods.getAlias(participant).call());
+                        count = await retryCall(() => contract.methods.getTicketCount(participant).call());
+                    } catch (error) {
+                        console.error(`Erro ao obter dados do participante ${participant}:`, error);
+                    }
+                    participantData.push({ address: participant, alias, count });
+                }
+                participantData.sort((a, b) => b.count - a.count);
+                participantsList.innerHTML = "";
+                participantData.forEach(({ address, alias, count }, i) => {
+                    const li = document.createElement("li");
+                    li.setAttribute("data-rank", i + 1);
+                    li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
+                    participantsList.appendChild(li);
+                });
+                document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
+            } catch (error) {
+                console.error("Erro ao atualizar UI:", error);
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
