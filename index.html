@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@metamask/sdk@0.28.3/dist/metamask-sdk.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Ancizar+Sans:ital,wght@0,100..1000;1,100..1000&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
@@ -204,11 +205,6 @@
         <p>Transação em andamento...</p>
         <div class="loader"></div>
     </div>
-    <div id="metamaskMobilePopup" class="popup">
-        <p>Abra este site no navegador embutido do MetaMask ou use WalletConnect.</p>
-        <p class="text-sm text-gray-400 mt-2">No app MetaMask, clique no ícone do navegador e cole o URL do site.</p>
-        <button id="closeMetamaskMobilePopup" class="mt-4 secondary-button">Fechar</button>
-    </div>
     <div id="thanksPopup" class="popup">
         <p>Obrigado por ajudar a comunidade Monad. Boa Sorte!</p>
         <button id="closeThanksPopup" class="mt-4 action-button">Fechar</button>
@@ -327,6 +323,11 @@
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
         let walletConnectProvider = null;
+        const MMSDK = new MetaMaskSDK.MetaMaskSDK({
+            dappMetadata: { name: "Sorteios 0xGus", url: window.location.href },
+            enableAnalytics: false
+        });
+        const ethereum = MMSDK.getProvider();
 
         async function init() {
             try {
@@ -338,12 +339,12 @@
                 console.error("Erro ao inicializar Web3:", error);
                 return;
             }
-            if (Cookies.get("userAddress") && window.ethereum) {
+            if (Cookies.get("userAddress") && ethereum) {
                 try {
                     console.log("Restaurando conexão via cookie...");
-                    web3 = new Web3(window.ethereum);
+                    web3 = new Web3(ethereum);
                     contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
-                    const accounts = await window.ethereum.request({ method: "eth_accounts" });
+                    const accounts = await ethereum.request({ method: "eth_accounts" });
                     if (accounts.length > 0) {
                         userAddress = accounts[0];
                         isWalletConnected = true;
@@ -369,7 +370,6 @@
             document.getElementById("ticketQuantity").addEventListener("input", updateTotalCost);
             document.getElementById("acceptCookies").addEventListener("click", acceptCookies);
             document.getElementById("closeErrorPopup").addEventListener("click", () => hidePopup("errorPopup"));
-            document.getElementById("closeMetamaskMobilePopup").addEventListener("click", () => hidePopup("metamaskMobilePopup"));
             document.getElementById("closeThanksPopup").addEventListener("click", () => hidePopup("thanksPopup"));
             document.getElementById("submitUsername").addEventListener("click", submitTwitterUsername);
             setupImage3DEffect();
@@ -398,20 +398,6 @@
             return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         }
 
-        function isMetaMaskBrowser() {
-            return navigator.userAgent.includes("MetaMask");
-        }
-
-        async function waitForEthereum(maxAttempts = 3, delay = 2000) {
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                if (window.ethereum) {
-                    return true;
-                }
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-            return false;
-        }
-
         async function connectWallet() {
             if (isConnecting) {
                 showErrorPopup("Uma solicitação de conexão está pendente. Por favor, aguarde.");
@@ -420,43 +406,28 @@
             isConnecting = true;
             console.log("Tentando conectar carteira via MetaMask...");
             try {
-                if (isMobileDevice() && !isMetaMaskBrowser()) {
-                    console.log("Dispositivo móvel detectado, abrindo MetaMask...");
-                    window.location.href = "metamask://";
-                    showMetamaskMobilePopup();
-                    const ethereumAvailable = await waitForEthereum(3, 2000);
-                    if (!ethereumAvailable) {
-                        console.error("window.ethereum não injetado após deeplink.");
-                        showErrorPopup("Não foi possível detectar o MetaMask. Use WalletConnect ou o navegador embutido do MetaMask.");
-                        return;
-                    }
-                    web3 = new Web3(window.ethereum);
-                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
-                } else if (!isMobileDevice() && (!window.ethereum || !window.ethereum.isMetaMask)) {
-                    console.log("MetaMask não detectado no desktop.");
-                    showErrorPopup("MetaMask não está instalado. Instale a extensão MetaMask ou use WalletConnect.");
+                if (!ethereum) {
+                    console.log("MetaMask SDK não detectado.");
+                    showErrorPopup("MetaMask não está instalado. Instale o app MetaMask ou use WalletConnect.");
                     return;
-                } else {
-                    console.log("MetaMask detectado, conectando...");
-                    web3 = new Web3(window.ethereum);
-                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
                 }
-
-                const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+                web3 = new Web3(ethereum);
+                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                const accounts = await ethereum.request({ method: "eth_requestAccounts" });
                 userAddress = accounts[0];
                 console.log("Carteira conectada:", userAddress);
-                const chainId = await window.ethereum.request({ method: "eth_chainId" });
+                const chainId = await ethereum.request({ method: "eth_chainId" });
                 if (chainId !== MONAD_TESTNET.chainId) {
                     console.log("Trocando para Monad Testnet...");
                     try {
-                        await window.ethereum.request({
+                        await ethereum.request({
                             method: "wallet_switchEthereumChain",
                             params: [{ chainId: MONAD_TESTNET.chainId }],
                         });
                     } catch (switchError) {
                         if (switchError.code === 4902) {
                             console.log("Adicionando Monad Testnet...");
-                            await window.ethereum.request({
+                            await ethereum.request({
                                 method: "wallet_addEthereumChain",
                                 params: [{
                                     chainId: MONAD_TESTNET.chainId,
@@ -575,11 +546,6 @@
         function showUsernamePopup() {
             document.getElementById("twitterUsernameInput").value = xUsername || "";
             document.getElementById("usernamePopup").style.display = "block";
-            document.getElementById("popupOverlay").style.display = "block";
-        }
-
-        function showMetamaskMobilePopup() {
-            document.getElementById("metamaskMobilePopup").style.display = "block";
             document.getElementById("popupOverlay").style.display = "block";
         }
 
@@ -742,9 +708,20 @@
         }
 
         function setupMenuCloseListener() {
-            let isMouseOverMenu = false;
+            let isMouseOverButton = false, isMouseOverMenu = false;
             const walletButton = document.getElementById("walletButton");
             const walletMenu = document.getElementById("walletMenu");
+            walletButton.addEventListener("mouseenter", () => {
+                isMouseOverButton = true;
+                if (isWalletConnected) {
+                    walletMenu.classList.remove("hidden");
+                    console.log("Menu aberto (mouseenter no botão)");
+                }
+            });
+            walletButton.addEventListener("mouseleave", () => {
+                isMouseOverButton = false;
+                console.log("Mouse saiu do botão");
+            });
             walletMenu.addEventListener("mouseenter", () => {
                 isMouseOverMenu = true;
                 console.log("Mouse sobre o menu");
@@ -753,14 +730,10 @@
                 isMouseOverMenu = false;
                 console.log("Mouse saiu do menu");
             });
-            document.addEventListener("click", (e) => {
-                console.log("Clique detectado", { target: e.target, isMouseOverMenu });
-                if (walletButton.contains(e.target) && isWalletConnected) {
-                    walletMenu.classList.toggle("hidden");
-                    console.log("Menu toggled:", !walletMenu.classList.contains("hidden"));
-                } else if (!walletMenu.contains(e.target) && !isMouseOverMenu) {
+            document.addEventListener("mousemove", (e) => {
+                if (!isMouseOverButton && !isMouseOverMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
                     walletMenu.classList.add("hidden");
-                    console.log("Menu fechado");
+                    console.log("Menu fechado (mouse fora)");
                 }
             });
         }
@@ -787,11 +760,9 @@
             if (popupId === "thanksPopup") {
                 document.getElementById("errorPopup").style.display = "none";
                 document.getElementById("processingPopup").style.display = "none";
-                document.getElementById("metamaskMobilePopup").style.display = "none";
             }
             if (document.getElementById("errorPopup").style.display !== "block" &&
                 document.getElementById("processingPopup").style.display !== "block" &&
-                document.getElementById("metamaskMobilePopup").style.display !== "block" &&
                 document.getElementById("thanksPopup").style.display !== "block" &&
                 document.getElementById("usernamePopup").style.display !== "block" &&
                 document.getElementById("cookieConsent").style.display !== "block") {
