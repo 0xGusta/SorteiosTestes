@@ -361,6 +361,7 @@
                     Cookies.remove("xUsername");
                 }
             }
+            console.log("WalletConnectProvider disponível:", !!window.WalletConnectProvider);
             document.getElementById("walletButton").addEventListener("click", debounce(connectWallet, 500));
             document.getElementById("walletConnectButton").addEventListener("click", debounce(connectWalletConnect, 500));
             document.getElementById("disconnectWallet").addEventListener("click", disconnectWallet);
@@ -503,7 +504,12 @@
             isConnecting = true;
             console.log("Tentando conectar via WalletConnect...");
             try {
-                walletConnectProvider = new window.Web3Provider(window.WalletConnectProvider.default, {
+                if (!window.WalletConnectProvider) {
+                    console.error("WalletConnectProvider não carregado.");
+                    showErrorPopup("Erro ao carregar WalletConnect. Tente novamente mais tarde.");
+                    return;
+                }
+                walletConnectProvider = new window.WalletConnectProvider({
                     rpc: { [parseInt(MONAD_TESTNET.chainId, 16)]: MONAD_TESTNET.rpcUrls[0] },
                     chainId: parseInt(MONAD_TESTNET.chainId, 16)
                 });
@@ -737,20 +743,24 @@
 
         function setupMenuCloseListener() {
             let isMouseOverMenu = false;
+            const walletButton = document.getElementById("walletButton");
             const walletMenu = document.getElementById("walletMenu");
             walletMenu.addEventListener("mouseenter", () => {
                 isMouseOverMenu = true;
+                console.log("Mouse sobre o menu");
             });
             walletMenu.addEventListener("mouseleave", () => {
                 isMouseOverMenu = false;
+                console.log("Mouse saiu do menu");
             });
             document.addEventListener("click", (e) => {
-                const walletButton = document.getElementById("walletButton");
-                const walletMenu = document.getElementById("walletMenu");
+                console.log("Clique detectado", { target: e.target, isMouseOverMenu });
                 if (walletButton.contains(e.target) && isWalletConnected) {
                     walletMenu.classList.toggle("hidden");
-                } else if (!walletButton.contains(e.target) && !walletMenu.contains(e.target) && !isMouseOverMenu) {
+                    console.log("Menu toggled:", !walletMenu.classList.contains("hidden"));
+                } else if (!walletMenu.contains(e.target) && !isMouseOverMenu) {
                     walletMenu.classList.add("hidden");
+                    console.log("Menu fechado");
                 }
             });
         }
@@ -811,85 +821,86 @@
             image.addEventListener("mouseleave", () => {
                 image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
             });
-}
-async function updateUI() {
-    try {
-        let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false;
-        if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
-            ({ ticketPrice, ticketCount, participants, isRaffleOpen } = cache.data);
-        } else {
-            try {
-                console.log("Lendo ticketPrice...");
-                ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
-            } catch (error) {
-                console.error("Erro ao ler ticketPrice:", error);
-            }
-            try {
-                console.log("Lendo participantes...");
-                participants = await retryCall(() => contract.methods.getParticipants().call());
-            } catch (error) {
-                console.error("Erro ao ler participantes:", error);
-            }
-            try {
-                console.log("Lendo status do sorteio...");
-                isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
-            } catch (error) {
-                console.error("Erro ao ler isRaffleOpen:", error);
-            }
-            if (userAddress && isWalletConnected) {
-                try {
-                    console.log("Lendo ticketCount para:", userAddress);
-                    ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-                } catch (error) {
-                    console.error("Erro ao ler ticketCount:", error);
-                }
-            }
-            cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen };
-            cache.timestamp = Date.now();
         }
-        document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-        document.getElementById("participantCount").innerText = participants.length;
-        document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
-        if (isWalletConnected) {
-            await updateTotalCost();
-            await updateWalletBalance();
-            updateBuyButton(isRaffleOpen);
-        } else {
-            document.getElementById("walletBalance").innerText = "0 MON";
-            document.getElementById("totalCost").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-            updateBuyButton(isRaffleOpen);
-        }
-        const participantsList = document.getElementById("participantsList");
-        const participantData = [];
-        const uniqueParticipants = [...new Set(participants)];
-        for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
-            const participant = uniqueParticipants[i];
-            if (!web3.utils.isAddress(participant)) continue;
-            let alias = "Desconhecido";
-            let count = 0;
-            try {
-                alias = await retryCall(() => contract.methods.getAlias(participant).call());
-                count = await retryCall(() => contract.methods.getTicketCount(participant).call());
-            } catch (error) {
-                console.error(`Erro ao obter dados do participante ${participant}:`, error);
-            }
-            participantData.push({ address: participant, alias, count });
-        }
-        participantData.sort((a, b) => b.count - a.count);
-        participantsList.innerHTML = "";
-        participantData.forEach(({ address, alias, count }, i) => {
-            const li = document.createElement("li");
-            li.setAttribute("data-rank", i + 1);
-            li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
-            participantsList.appendChild(li);
-        });
-        document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
-    } catch (error) {
-        console.error("Erro ao atualizar UI:", error);
-    }
-}
 
-window.onload = init;
+        async function updateUI() {
+            try {
+                let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false;
+                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
+                    ({ ticketPrice, ticketCount, participants, isRaffleOpen } = cache.data);
+                } else {
+                    try {
+                        console.log("Lendo ticketPrice...");
+                        ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+                    } catch (error) {
+                        console.error("Erro ao ler ticketPrice:", error);
+                    }
+                    try {
+                        console.log("Lendo participantes...");
+                        participants = await retryCall(() => contract.methods.getParticipants().call());
+                    } catch (error) {
+                        console.error("Erro ao ler participantes:", error);
+                    }
+                    try {
+                        console.log("Lendo status do sorteio...");
+                        isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                    } catch (error) {
+                        console.error("Erro ao ler isRaffleOpen:", error);
+                    }
+                    if (userAddress && isWalletConnected) {
+                        try {
+                            console.log("Lendo ticketCount para:", userAddress);
+                            ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
+                        } catch (error) {
+                            console.error("Erro ao ler ticketCount:", error);
+                        }
+                    }
+                    cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen };
+                    cache.timestamp = Date.now();
+                }
+                document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                document.getElementById("participantCount").innerText = participants.length;
+                document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                if (isWalletConnected) {
+                    await updateTotalCost();
+                    await updateWalletBalance();
+                    updateBuyButton(isRaffleOpen);
+                } else {
+                    document.getElementById("walletBalance").innerText = "0 MON";
+                    document.getElementById("totalCost").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    updateBuyButton(isRaffleOpen);
+                }
+                const participantsList = document.getElementById("participantsList");
+                const participantData = [];
+                const uniqueParticipants = [...new Set(participants)];
+                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+                    const participant = uniqueParticipants[i];
+                    if (!web3.utils.isAddress(participant)) continue;
+                    let alias = "Desconhecido";
+                    let count = 0;
+                    try {
+                        alias = await retryCall(() => contract.methods.getAlias(participant).call());
+                        count = await retryCall(() => contract.methods.getTicketCount(participant).call());
+                    } catch (error) {
+                        console.error(`Erro ao obter dados do participante ${participant}:`, error);
+                    }
+                    participantData.push({ address: participant, alias, count });
+                }
+                participantData.sort((a, b) => b.count - a.count);
+                participantsList.innerHTML = "";
+                participantData.forEach(({ address, alias, count }, i) => {
+                    const li = document.createElement("li");
+                    li.setAttribute("data-rank", i + 1);
+                    li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
+                    participantsList.appendChild(li);
+                });
+                document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
+            } catch (error) {
+                console.error("Erro ao atualizar UI:", error);
+            }
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
