@@ -7,7 +7,6 @@
     <link rel="icon" href="/images/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@metamask/sdk@0.28.3/dist/metamask-sdk.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -223,7 +222,6 @@
             <img id="logo" src="/images/iconmain.png" alt="Sorteios 0xGus" width="128" height="128">
             <div class="relative flex gap-2">
                 <button id="walletButton" class="action-button">Conectar Carteira</button>
-                <button id="walletConnectButton" class="secondary-button">WalletConnect</button>
                 <div id="walletMenu" class="hidden absolute right-0 mt-2 w-48 bg-gray-700 text-white rounded-lg shadow-lg">
                     <div class="p-2 border-b border-gray-600">
                         <p><strong>Endereço:</strong> <span id="userAddress" class="truncate-address"></span></p>
@@ -322,14 +320,24 @@
         let xUsername = "";
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
-        let walletConnectProvider = null;
-        const MMSDK = new MetaMaskSDK.MetaMaskSDK({
-            dappMetadata: { name: "Sorteios 0xGus", url: window.location.href },
-            enableAnalytics: false
-        });
-        const ethereum = MMSDK.getProvider();
+        let MMSDK;
 
         async function init() {
+            try {
+                console.log("Verificando MetaMask SDK...");
+                if (!window.MetaMaskSDK) {
+                    throw new Error("MetaMask SDK não carregado.");
+                }
+                MMSDK = new window.MetaMaskSDK({
+                    dappMetadata: { name: "Sorteios 0xGus", url: window.location.href },
+                    enableAnalytics: false
+                });
+                console.log("MetaMask SDK inicializado.");
+            } catch (error) {
+                console.error("Erro ao inicializar MetaMask SDK:", error);
+                showErrorPopup("Erro ao carregar MetaMask SDK. Tente recarregar a página.");
+                return;
+            }
             try {
                 console.log("Inicializando Web3 com RPC público...");
                 web3 = new Web3(new Web3.providers.HttpProvider(MONAD_TESTNET.rpcUrls[0]));
@@ -337,11 +345,16 @@
                 console.log("Contrato inicializado:", CONTRACT_ADDRESS);
             } catch (error) {
                 console.error("Erro ao inicializar Web3:", error);
+                showErrorPopup("Erro ao conectar ao contrato. Tente novamente mais tarde.");
                 return;
             }
-            if (Cookies.get("userAddress") && ethereum) {
+            if (Cookies.get("userAddress")) {
                 try {
                     console.log("Restaurando conexão via cookie...");
+                    const ethereum = MMSDK.getProvider();
+                    if (!ethereum) {
+                        throw new Error("Provider MetaMask não disponível.");
+                    }
                     web3 = new Web3(ethereum);
                     contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
                     const accounts = await ethereum.request({ method: "eth_accounts" });
@@ -362,9 +375,7 @@
                     Cookies.remove("xUsername");
                 }
             }
-            console.log("WalletConnectProvider disponível:", !!window.WalletConnectProvider);
             document.getElementById("walletButton").addEventListener("click", debounce(connectWallet, 500));
-            document.getElementById("walletConnectButton").addEventListener("click", debounce(connectWalletConnect, 500));
             document.getElementById("disconnectWallet").addEventListener("click", disconnectWallet);
             document.getElementById("buyTickets").addEventListener("click", debounce(handleBuyTickets, 500));
             document.getElementById("ticketQuantity").addEventListener("input", updateTotalCost);
@@ -394,10 +405,6 @@
             };
         }
 
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        }
-
         async function connectWallet() {
             if (isConnecting) {
                 showErrorPopup("Uma solicitação de conexão está pendente. Por favor, aguarde.");
@@ -406,13 +413,15 @@
             isConnecting = true;
             console.log("Tentando conectar carteira via MetaMask...");
             try {
+                const ethereum = MMSDK.getProvider();
                 if (!ethereum) {
-                    console.log("MetaMask SDK não detectado.");
-                    showErrorPopup("MetaMask não está instalado. Instale o app MetaMask ou use WalletConnect.");
+                    console.log("MetaMask não detectado.");
+                    showErrorPopup("MetaMask não está instalado. Instale o app MetaMask.");
                     return;
                 }
                 web3 = new Web3(ethereum);
                 contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                console.log("Contrato reinicializado para MetaMask:", CONTRACT_ADDRESS);
                 const accounts = await ethereum.request({ method: "eth_requestAccounts" });
                 userAddress = accounts[0];
                 console.log("Carteira conectada:", userAddress);
@@ -460,51 +469,8 @@
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a conexão no MetaMask. Autorize a conexão para continuar.");
                 } else {
-                    showErrorPopup("Erro ao conectar a carteira. Tente novamente ou use WalletConnect.");
+                    showErrorPopup("Erro ao conectar a carteira. Tente novamente.");
                 }
-            } finally {
-                isConnecting = false;
-            }
-        }
-
-        async function connectWalletConnect() {
-            if (isConnecting) {
-                showErrorPopup("Uma solicitação de conexão está pendente. Por favor, aguarde.");
-                return;
-            }
-            isConnecting = true;
-            console.log("Tentando conectar via WalletConnect...");
-            try {
-                if (!window.WalletConnectProvider) {
-                    console.error("WalletConnectProvider não carregado.");
-                    showErrorPopup("Erro ao carregar WalletConnect. Tente novamente mais tarde.");
-                    return;
-                }
-                walletConnectProvider = new window.WalletConnectProvider({
-                    rpc: { [parseInt(MONAD_TESTNET.chainId, 16)]: MONAD_TESTNET.rpcUrls[0] },
-                    chainId: parseInt(MONAD_TESTNET.chainId, 16)
-                });
-                await walletConnectProvider.enable();
-                web3 = new Web3(walletConnectProvider);
-                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
-                const accounts = await web3.eth.getAccounts();
-                userAddress = accounts[0];
-                console.log("Carteira conectada via WalletConnect:", userAddress);
-                isWalletConnected = true;
-                document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
-                document.getElementById("walletMenu").classList.add("hidden");
-                document.getElementById("userAddress").innerText = userAddress;
-                Cookies.set("userAddress", userAddress, { expires: 7 });
-                if (!xUsername) {
-                    showUsernamePopup();
-                } else {
-                    document.getElementById("xUsernameDisplay").innerText = xUsername;
-                }
-                updateBuyButton();
-                await updateUI();
-            } catch (error) {
-                console.error("Erro ao conectar WalletConnect:", error);
-                showErrorPopup("Erro ao conectar via WalletConnect. Tente novamente ou use MetaMask.");
             } finally {
                 isConnecting = false;
             }
@@ -514,10 +480,6 @@
             userAddress = null;
             isWalletConnected = false;
             xUsername = "";
-            if (walletConnectProvider) {
-                walletConnectProvider.disconnect();
-                walletConnectProvider = null;
-            }
             Cookies.remove("userAddress");
             Cookies.remove("xUsername");
             web3 = new Web3(new Web3.providers.HttpProvider(MONAD_TESTNET.rpcUrls[0]));
@@ -608,7 +570,7 @@
             }
         }
 
-        async function retryCall(callFn, maxRetries = 3, baseDelay = 1000) {
+        async function retryCall(callFn, maxRetries = 5, baseDelay = 2000) {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
                     return await callFn();
