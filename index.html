@@ -7,6 +7,7 @@
     <link rel="icon" href="/images/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Ancizar+Sans:ital,wght@0,100..1000;1,100..1000&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
@@ -134,6 +135,13 @@
         }
         #walletMenu {
             z-index: 1001;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(-10px);
+            opacity: 0;
+        }
+        #walletMenu:not(.hidden) {
+            transform: translateY(0);
+            opacity: 1;
         }
         @media (max-width: 768px) {
             #walletMenu {
@@ -197,7 +205,7 @@
         <div class="loader"></div>
     </div>
     <div id="metamaskMobilePopup" class="popup">
-        <p>Abra este site no navegador embutido do MetaMask para continuar.</p>
+        <p>Abra este site no navegador embutido do MetaMask ou use WalletConnect.</p>
         <p class="text-sm text-gray-400 mt-2">No app MetaMask, clique no ícone do navegador e cole o URL do site.</p>
         <button id="closeMetamaskMobilePopup" class="mt-4 secondary-button">Fechar</button>
     </div>
@@ -217,8 +225,9 @@
     <header class="bg-gray-800 w-full py-4 shadow-lg">
         <div class="container mx-auto px-4 flex justify-between items-center">
             <img id="logo" src="/images/iconmain.png" alt="Sorteios 0xGus" width="128" height="128">
-            <div class="relative">
+            <div class="relative flex gap-2">
                 <button id="walletButton" class="action-button">Conectar Carteira</button>
+                <button id="walletConnectButton" class="secondary-button">WalletConnect</button>
                 <div id="walletMenu" class="hidden absolute right-0 mt-2 w-48 bg-gray-700 text-white rounded-lg shadow-lg">
                     <div class="p-2 border-b border-gray-600">
                         <p><strong>Endereço:</strong> <span id="userAddress" class="truncate-address"></span></p>
@@ -317,6 +326,7 @@
         let xUsername = "";
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
+        let walletConnectProvider = null;
 
         async function init() {
             try {
@@ -328,7 +338,31 @@
                 console.error("Erro ao inicializar Web3:", error);
                 return;
             }
+            if (Cookies.get("userAddress") && window.ethereum) {
+                try {
+                    console.log("Restaurando conexão via cookie...");
+                    web3 = new Web3(window.ethereum);
+                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                    const accounts = await window.ethereum.request({ method: "eth_accounts" });
+                    if (accounts.length > 0) {
+                        userAddress = accounts[0];
+                        isWalletConnected = true;
+                        xUsername = Cookies.get("xUsername") || "";
+                        document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
+                        document.getElementById("userAddress").innerText = userAddress;
+                        document.getElementById("xUsernameDisplay").innerText = xUsername || "Não definido";
+                    } else {
+                        Cookies.remove("userAddress");
+                        Cookies.remove("xUsername");
+                    }
+                } catch (error) {
+                    console.error("Erro ao restaurar conexão:", error);
+                    Cookies.remove("userAddress");
+                    Cookies.remove("xUsername");
+                }
+            }
             document.getElementById("walletButton").addEventListener("click", debounce(connectWallet, 500));
+            document.getElementById("walletConnectButton").addEventListener("click", debounce(connectWalletConnect, 500));
             document.getElementById("disconnectWallet").addEventListener("click", disconnectWallet);
             document.getElementById("buyTickets").addEventListener("click", debounce(handleBuyTickets, 500));
             document.getElementById("ticketQuantity").addEventListener("input", updateTotalCost);
@@ -342,14 +376,6 @@
             if (!Cookies.get("acceptedCookies") && !acceptedCookies) {
                 document.getElementById("cookieConsent").style.display = "block";
                 document.getElementById("popupOverlay").style.display = "block";
-            }
-            if (Cookies.get("userAddress")) {
-                userAddress = Cookies.get("userAddress");
-                isWalletConnected = true;
-                xUsername = Cookies.get("xUsername") || "";
-                document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
-                document.getElementById("userAddress").innerText = userAddress;
-                document.getElementById("xUsernameDisplay").innerText = xUsername || "Não definido";
             }
             await updateUI();
             setInterval(updateUI, 10000);
@@ -391,7 +417,7 @@
                 return;
             }
             isConnecting = true;
-            console.log("Tentando conectar carteira...");
+            console.log("Tentando conectar carteira via MetaMask...");
             try {
                 if (isMobileDevice() && !isMetaMaskBrowser()) {
                     console.log("Dispositivo móvel detectado, abrindo MetaMask...");
@@ -400,14 +426,14 @@
                     const ethereumAvailable = await waitForEthereum(3, 2000);
                     if (!ethereumAvailable) {
                         console.error("window.ethereum não injetado após deeplink.");
-                        showErrorPopup("Não foi possível detectar o MetaMask. Use o navegador embutido do MetaMask.");
+                        showErrorPopup("Não foi possível detectar o MetaMask. Use WalletConnect ou o navegador embutido do MetaMask.");
                         return;
                     }
                     web3 = new Web3(window.ethereum);
                     contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
                 } else if (!isMobileDevice() && (!window.ethereum || !window.ethereum.isMetaMask)) {
                     console.log("MetaMask não detectado no desktop.");
-                    showErrorPopup("MetaMask não está instalado. Instale a extensão MetaMask para continuar.");
+                    showErrorPopup("MetaMask não está instalado. Instale a extensão MetaMask ou use WalletConnect.");
                     return;
                 } else {
                     console.log("MetaMask detectado, conectando...");
@@ -462,8 +488,46 @@
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a conexão no MetaMask. Autorize a conexão para continuar.");
                 } else {
-                    showErrorPopup("Erro ao conectar a carteira. Tente novamente.");
+                    showErrorPopup("Erro ao conectar a carteira. Tente novamente ou use WalletConnect.");
                 }
+            } finally {
+                isConnecting = false;
+            }
+        }
+
+        async function connectWalletConnect() {
+            if (isConnecting) {
+                showErrorPopup("Uma solicitação de conexão está pendente. Por favor, aguarde.");
+                return;
+            }
+            isConnecting = true;
+            console.log("Tentando conectar via WalletConnect...");
+            try {
+                walletConnectProvider = new window.Web3Provider(window.WalletConnectProvider.default, {
+                    rpc: { [parseInt(MONAD_TESTNET.chainId, 16)]: MONAD_TESTNET.rpcUrls[0] },
+                    chainId: parseInt(MONAD_TESTNET.chainId, 16)
+                });
+                await walletConnectProvider.enable();
+                web3 = new Web3(walletConnectProvider);
+                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                const accounts = await web3.eth.getAccounts();
+                userAddress = accounts[0];
+                console.log("Carteira conectada via WalletConnect:", userAddress);
+                isWalletConnected = true;
+                document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
+                document.getElementById("walletMenu").classList.add("hidden");
+                document.getElementById("userAddress").innerText = userAddress;
+                Cookies.set("userAddress", userAddress, { expires: 7 });
+                if (!xUsername) {
+                    showUsernamePopup();
+                } else {
+                    document.getElementById("xUsernameDisplay").innerText = xUsername;
+                }
+                updateBuyButton();
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao conectar WalletConnect:", error);
+                showErrorPopup("Erro ao conectar via WalletConnect. Tente novamente ou use MetaMask.");
             } finally {
                 isConnecting = false;
             }
@@ -473,8 +537,14 @@
             userAddress = null;
             isWalletConnected = false;
             xUsername = "";
+            if (walletConnectProvider) {
+                walletConnectProvider.disconnect();
+                walletConnectProvider = null;
+            }
             Cookies.remove("userAddress");
             Cookies.remove("xUsername");
+            web3 = new Web3(new Web3.providers.HttpProvider(MONAD_TESTNET.rpcUrls[0]));
+            contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
             document.getElementById("walletButton").innerText = "Conectar Carteira";
             document.getElementById("walletButton").classList.remove("disabled-button");
             document.getElementById("walletButton").classList.add("action-button");
@@ -644,17 +714,18 @@
                 const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
                 const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
                 console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
-                await contract.methods.buyTickets(quantity, alias).send({
+                const tx = await contract.methods.buyTickets(quantity, alias).send({
                     from: userAddress,
                     value: totalValue
                 });
+                console.log("Transação bem-sucedida:", tx);
                 showThanksPopup();
                 cache = { data: null, timestamp: 0, validDuration: 60000 };
                 await updateUI();
             } catch (error) {
                 console.error("Erro ao comprar tickets:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
-                    showErrorPopup("Você cancelou a transação no MetaMask. Autorize a transação para continuar.");
+                    showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
                 } else {
                     showErrorPopup("Erro ao processar a compra de tickets. Tente novamente.");
                 }
@@ -665,13 +736,21 @@
         }
 
         function setupMenuCloseListener() {
+            let isMouseOverMenu = false;
+            const walletMenu = document.getElementById("walletMenu");
+            walletMenu.addEventListener("mouseenter", () => {
+                isMouseOverMenu = true;
+            });
+            walletMenu.addEventListener("mouseleave", () => {
+                isMouseOverMenu = false;
+            });
             document.addEventListener("click", (e) => {
                 const walletButton = document.getElementById("walletButton");
                 const walletMenu = document.getElementById("walletMenu");
-                if (!walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
-                    walletMenu.classList.add("hidden");
-                } else if (walletButton.contains(e.target) && isWalletConnected) {
+                if (walletButton.contains(e.target) && isWalletConnected) {
                     walletMenu.classList.toggle("hidden");
+                } else if (!walletButton.contains(e.target) && !walletMenu.contains(e.target) && !isMouseOverMenu) {
+                    walletMenu.classList.add("hidden");
                 }
             });
         }
@@ -732,86 +811,85 @@
             image.addEventListener("mouseleave", () => {
                 image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
             });
-        }
-
-        async function updateUI() {
+}
+async function updateUI() {
+    try {
+        let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false;
+        if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
+            ({ ticketPrice, ticketCount, participants, isRaffleOpen } = cache.data);
+        } else {
             try {
-                let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false;
-                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
-                    ({ ticketPrice, ticketCount, participants, isRaffleOpen } = cache.data);
-                } else {
-                    try {
-                        console.log("Lendo ticketPrice...");
-                        ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
-                    } catch (error) {
-                        console.error("Erro ao ler ticketPrice:", error);
-                    }
-                    try {
-                        console.log("Lendo participantes...");
-                        participants = await retryCall(() => contract.methods.getParticipants().call());
-                    } catch (error) {
-                        console.error("Erro ao ler participantes:", error);
-                    }
-                    try {
-                        console.log("Lendo status do sorteio...");
-                        isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
-                    } catch (error) {
-                        console.error("Erro ao ler isRaffleOpen:", error);
-                    }
-                    if (userAddress && isWalletConnected) {
-                        try {
-                            console.log("Lendo ticketCount para:", userAddress);
-                            ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-                        } catch (error) {
-                            console.error("Erro ao ler ticketCount:", error);
-                        }
-                    }
-                    cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen };
-                    cache.timestamp = Date.now();
-                }
-                document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                document.getElementById("participantCount").innerText = participants.length;
-                document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
-                if (isWalletConnected) {
-                    await updateTotalCost();
-                    await updateWalletBalance();
-                    updateBuyButton(isRaffleOpen);
-                } else {
-                    document.getElementById("walletBalance").innerText = "0 MON";
-                    document.getElementById("totalCost").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    updateBuyButton(isRaffleOpen);
-                }
-                const participantsList = document.getElementById("participantsList");
-                const participantData = [];
-                const uniqueParticipants = [...new Set(participants)];
-                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
-                    const participant = uniqueParticipants[i];
-                    if (!web3.utils.isAddress(participant)) continue;
-                    let alias = "Desconhecido";
-                    let count = 0;
-                    try {
-                        alias = await retryCall(() => contract.methods.getAlias(participant).call());
-                        count = await retryCall(() => contract.methods.getTicketCount(participant).call());
-                    } catch (error) {
-                        console.error(`Erro ao obter dados do participante ${participant}:`, error);
-                    }
-                    participantData.push({ address: participant, alias, count });
-                }
-                participantData.sort((a, b) => b.count - a.count);
-                participantsList.innerHTML = "";
-                participantData.forEach(({ address, alias, count }, i) => {
-                    const li = document.createElement("li");
-                    li.setAttribute("data-rank", i + 1);
-                    li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
-                    participantsList.appendChild(li);
-                });
-                document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
+                console.log("Lendo ticketPrice...");
+                ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
             } catch (error) {
-                console.error("Erro ao atualizar UI:", error);
+                console.error("Erro ao ler ticketPrice:", error);
             }
+            try {
+                console.log("Lendo participantes...");
+                participants = await retryCall(() => contract.methods.getParticipants().call());
+            } catch (error) {
+                console.error("Erro ao ler participantes:", error);
+            }
+            try {
+                console.log("Lendo status do sorteio...");
+                isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+            } catch (error) {
+                console.error("Erro ao ler isRaffleOpen:", error);
+            }
+            if (userAddress && isWalletConnected) {
+                try {
+                    console.log("Lendo ticketCount para:", userAddress);
+                    ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
+                } catch (error) {
+                    console.error("Erro ao ler ticketCount:", error);
+                }
+            }
+            cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen };
+            cache.timestamp = Date.now();
         }
+        document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+        document.getElementById("participantCount").innerText = participants.length;
+        document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+        if (isWalletConnected) {
+            await updateTotalCost();
+            await updateWalletBalance();
+            updateBuyButton(isRaffleOpen);
+        } else {
+            document.getElementById("walletBalance").innerText = "0 MON";
+            document.getElementById("totalCost").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+            updateBuyButton(isRaffleOpen);
+        }
+        const participantsList = document.getElementById("participantsList");
+        const participantData = [];
+        const uniqueParticipants = [...new Set(participants)];
+        for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+            const participant = uniqueParticipants[i];
+            if (!web3.utils.isAddress(participant)) continue;
+            let alias = "Desconhecido";
+            let count = 0;
+            try {
+                alias = await retryCall(() => contract.methods.getAlias(participant).call());
+                count = await retryCall(() => contract.methods.getTicketCount(participant).call());
+            } catch (error) {
+                console.error(`Erro ao obter dados do participante ${participant}:`, error);
+            }
+            participantData.push({ address: participant, alias, count });
+        }
+        participantData.sort((a, b) => b.count - a.count);
+        participantsList.innerHTML = "";
+        participantData.forEach(({ address, alias, count }, i) => {
+            const li = document.createElement("li");
+            li.setAttribute("data-rank", i + 1);
+            li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
+            participantsList.appendChild(li);
+        });
+        document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
+    } catch (error) {
+        console.error("Erro ao atualizar UI:", error);
+    }
+}
 
-        window.onload = init;
+window.onload = init;
     </script>
 </body>
 </html>
