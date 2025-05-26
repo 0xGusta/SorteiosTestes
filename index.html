@@ -570,7 +570,7 @@
                     const tx = await contract.getMethods().buyTickets(quantity, alias).send({ from: userAddress, value: totalValue });
                     const checkFn = async () => {
                         const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                        return {
+                        
                             return {
                                     success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
                                     message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!")
