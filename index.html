@@ -10,187 +10,40 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Ancizar+Sans:ital,wght@0,100..1000;1,100..1000&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
-        body {
-            font-family: 'Ancizar Sans', sans-serif;
-        }
-        h1, h2, h3 {
-            font-family: 'Montserrat', sans-serif;
-        }
-        .image-3d {
-            transition: transform 0.1s ease-out;
-            transform-style: preserve-3d;
-        }
-        .truncate-address {
-            display: inline-block;
-            width: 100px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .popup {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #1f2937;
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-            z-index: 1000;
-            text-align: center;
-        }
-        .popup-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 999;
-        }
-        #cookieConsent {
-            padding: 20px;
-            font-size: 1.1rem;
-        }
-        #cookieConsent p {
-            margin-bottom: 10px;
-        }
-        #participantsSection {
-            min-height: 200px;
-            max-height: 300px;
-            overflow-y: auto;
-            background: #1f2937;
-            border: 1px solid #374151;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        #participantsList {
-            list-style: none;
-            padding: 0;
-        }
-        #participantsList li {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            margin-bottom: 8px;
-            background: linear-gradient(to right, #374151, #2d3748);
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            transition: transform 0.2s;
-        }
-        #participantsList li:hover {
-            transform: translateY(-2px);
-        }
-        #participantsList li::before {
-            content: attr(data-rank) "º";
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            line-height: 30px;
-            text-align: center;
-            background: #15803d;
-            color: white;
-            border-radius: 50%;
-            margin-right: 12px;
-            font-weight: bold;
-        }
-        #participantsSection::-webkit-scrollbar {
-            width: 8px;
-        }
-        #participantsSection::-webkit-scrollbar-track {
-            background: #2d3748;
-            border-radius: 4px;
-        }
-        #participantsSection::-webkit-scrollbar-thumb {
-            background: #16a34a;
-            border-radius: 4px;
-        }
-        #participantsSection::-webkit-scrollbar-thumb:hover {
-            background: #15803d;
-        }
+        body { font-family: 'Ancizar Sans', sans-serif; }
+        h1, h2, h3 { font-family: 'Montserrat', sans-serif; }
+        .image-3d { transition: transform 0.1s ease-out; transform-style: preserve-3d; }
+        .truncate-address { display: inline-block; width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1f2937; color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); z-index: 1000; text-align: center; }
+        .popup-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; }
+        #cookieConsent { padding: 20px; font-size: 1.1rem; }
+        #cookieConsent p { margin-bottom: 10px; }
+        #participantsSection { min-height: 200px; max-height: 300px; overflow-y: auto; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        #participantsList { list-style: none; padding: 0; }
+        #participantsList li { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: linear-gradient(to right, #374151, #2d3748); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.2s; }
+        #participantsList li:hover { transform: translateY(-2px); }
+        #participantsList li::before { content: attr(data-rank) "º"; display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; background: #15803d; color: white; border-radius: 50%; margin-right: 12px; font-weight: bold; }
+        #participantsSection::-webkit-scrollbar { width: 8px; }
+        #participantsSection::-webkit-scrollbar-track { background: #2d3748; border-radius: 4px; }
+        #participantsSection::-webkit-scrollbar-thumb { background: #16a34a; border-radius: 4px; }
+        #participantsSection::-webkit-scrollbar-thumb:hover { background: #15803d; }
         @media (max-width: 768px) {
-            #participantsSection {
-                padding: 12px;
-            }
-            #participantsList li {
-                font-size: 0.9rem;
-                padding: 10px;
-            }
-            #participantsList li::before {
-                width: 24px;
-                height: 24px;
-                line-height: 24px;
-                font-size: 0.8rem;
-            }
+            #participantsSection { padding: 12px; }
+            #participantsList li { font-size: 0.9rem; padding: 10px; }
+            #participantsList li::before { width: 24px; height: 24px; line-height: 24px; font-size: 0.8rem; }
         }
-        #logo {
-            border-radius: 20%;
-            width: 128px;
-            height: 128px;
-        }
-        #walletMenu {
-            z-index: 1001;
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            transform: translateY(-10px);
-            opacity: 0;
-        }
-        #walletMenu:not(.hidden) {
-            transform: translateY(0);
-            opacity: 1;
-        }
-        @media (max-width: 768px) {
-            #walletMenu {
-                width: 100%;
-                right: 0;
-            }
-        }
-        .action-button {
-            background-color: #16a34a;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            transition: background-color 0.2s;
-        }
-        .action-button:hover:not(:disabled) {
-            background-color: #15803d;
-        }
-        .secondary-button {
-            background-color: #4b5563;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            transition: background-color 0.2s;
-        }
-        .secondary-button:hover:not(:disabled) {
-            background-color: #374151;
-        }
-        .disabled-button {
-            background-color: #4b5563;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            cursor: not-allowed;
-        }
-        .error-text {
-            color: #f87171;
-        }
-        .loader {
-            border: 4px solid #e5e7eb;
-            border-top: 4px solid #16a34a;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        #logo { border-radius: 20%; width: 128px; height: 128px; }
+        #walletMenu { z-index: 1001; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(-10px); opacity: 0; }
+        #walletMenu:not(.hidden) { transform: translateY(0); opacity: 1; }
+        @media (max-width: 768px) { #walletMenu { width: 100%; right: 0; } }
+        .action-button { background-color: #16a34a; color: white; padding: 12px 24px; border-radius: 12px; transition: background-color 0.2s; }
+        .action-button:hover:not(:disabled) { background-color: #15803d; }
+        .secondary-button { background-color: #4b5563; color: white; padding: 12px 24px; border-radius: 12px; transition: background-color 0.2s; }
+        .secondary-button:hover:not(:disabled) { background-color: #374151; }
+        .disabled-button { background-color: #4b5563; color: white; padding: 12px 24px; border-radius: 12px; cursor: not-allowed; }
+        .error-text { color: #f87171; }
+        .loader { border: 4px solid #e5e7eb; border-top: 4px solid #16a34a; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 min-h-screen flex flex-col">
@@ -245,9 +98,9 @@
     </div>
     <main class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 flex-1">
         <div class="md:w-1/2">
-            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 1 + 5 MON</h2>
+            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 2 + 7 MON</h2>
             <div class="overflow-hidden rounded-lg">
-                <img id="sorteioImage" src="/images/mv1.avif" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
+                <img id="sorteioImage" src="/images/mv2.jpg" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
             </div>
         </div>
         <div class="md:w-1/2">
@@ -314,9 +167,9 @@
             {"inputs":[],"name":"getParticipants","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"getPastWinners","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"address","name":"_participant","type":"address"}],"name":"getTicketCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"isRaffleOpen","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"isRaffleThreshold","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"raffleCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"raffleNumber","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"refundParticipants","outputs":[],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[],"name":"startRaffle","outputs":[],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setTicketPrice","outputs":[],"stateMutability":"nonpayable","type":"function"},
@@ -328,7 +181,7 @@
         let xUsername = "";
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
-        let currentTicketPrice = "200000000000000000"; // 0.2 MON em wei
+        let currentTicketPrice = "200000000000000000"; // 0.2 MON em Wei
 
         const BUY_TICKETS_FORM = `
             <p><strong>Preço do Ticket:</strong> <span id="ticketPrice">0.2</span> MON</p>
@@ -347,7 +200,7 @@
                     </div>
                 </div>
                 <p><strong>Total:</strong> <span id="totalCost">0.2</span> MON</p>
-                <p id="raffleStatus" class="error-text mt-2 hidden">Sorteio Fechado</p>
+                <p id="raffleStatus" class="error-text mt-2 hidden">Sorteio Finalizado</p>
                 <button id="buyTickets" class="disabled-button w-full mt-2" disabled>Conecte sua wallet primeiro</button>
             </div>
         `;
@@ -373,9 +226,9 @@
                         userAddress = accounts[0];
                         isWalletConnected = true;
                         xUsername = Cookies.get("xUsername") || "";
-                        document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
+                        document.getElementById("walletButton").innerText = `Wallet: ${truncateAddress(userAddress)}`;
                         document.getElementById("userAddress").innerText = userAddress;
-                        document.getElementById("xUsernameDisplay").innerText = xUsername || "Não definido";
+                        document.getElementById("xUsernameDisplay").innerText = xUsername || "N/A";
                     } else {
                         Cookies.remove("userAddress");
                         Cookies.remove("xUsername");
@@ -396,13 +249,13 @@
             document.getElementById("drawWinnerButton").addEventListener("click", debounce(handleDrawWinner, 500));
             document.getElementById("refundParticipantsButton").addEventListener("click", debounce(handleRefundParticipants, 500));
             setupImage3DEffect();
-            setupMenuCloseListener();
+            setupMenu();
             if (!Cookies.get("acceptedCookies") && !acceptedCookies) {
                 document.getElementById("cookieConsent").style.display = "block";
                 document.getElementById("popupOverlay").style.display = "block";
             }
             await updateUI();
-            setInterval(updateUI, 10000);
+            setInterval(updateUI, 60000);
         }
 
         function debounce(func, wait) {
@@ -481,7 +334,7 @@
                     }
                 }
                 isWalletConnected = true;
-                document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
+                document.getElementById("walletButton").innerText = `Wallet: ${truncateAddress(userAddress)}`;
                 document.getElementById("walletMenu").classList.add("hidden");
                 document.getElementById("userAddress").innerText = userAddress;
                 Cookies.set("userAddress", userAddress, { expires: 7 });
@@ -518,7 +371,8 @@
             document.getElementById("walletMenu").classList.add("hidden");
             document.getElementById("userAddress").innerText = "";
             document.getElementById("xUsernameDisplay").innerText = "";
-            document.getElementById("walletBalance").innerText = "0 MON";
+            const walletBalanceElement = document.getElementById("walletBalance");
+            if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
             document.getElementById("drawWinnerButton").classList.add("hidden");
             document.getElementById("refundParticipantsButton").classList.add("hidden");
             updateBuyButton();
@@ -543,14 +397,20 @@
 
         function submitTwitterUsername() {
             const username = document.getElementById("twitterUsernameInput").value;
-            if (!isValidXUsername(username)) {
-                showErrorPopup("Insira um username válido do X (ex.: @username, apenas letras, números e sublinhados).");
-                return;
+            try {
+                if (!username) throw new Error("Invalid username format");
+                if (!isValidXUsername(username)) {
+                    showErrorPopup("Insira um username válido do X (ex.: @username, apenas letras, números e sublinhados).");
+                    return;
+                }
+                xUsername = normalizeXUsername(username);
+                Cookies.set("xUsername", xUsername, { expires: 7 });
+                document.getElementById("xUsernameDisplay").innerText = xUsername;
+                hidePopup("usernamePopup");
+            } catch (error) {
+                console.error("Erro ao submeter username:", error);
+                showErrorPopup(error.message || "Erro ao submeter username. Tente novamente.");
             }
-            xUsername = normalizeXUsername(username);
-            Cookies.set("xUsername", xUsername, { expires: 7 });
-            document.getElementById("xUsernameDisplay").innerText = xUsername;
-            hidePopup("usernamePopup");
         }
 
         function truncateAddress(address) {
@@ -558,6 +418,7 @@
         }
 
         const debouncedUpdateTotalCost = debounce(function updateTotalCost() {
+            console.log("Calculando total...");
             const input = document.getElementById("ticketQuantity");
             if (!input) return;
             const quantityError = document.getElementById("ticketQuantityError");
@@ -593,12 +454,12 @@
             }
         }
 
-        async function retryCall(callFn, maxRetries = 5, baseDelay = 2000) {
+        async function retryCall(callFn, maxRetries = 3, baseDelay = 1000) {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
                     return await callFn();
                 } catch (error) {
-                    console.error(`Tentativa ${attempt} falhou:`, error);
+                    console.error(`Tentativa ${attempt} falhou: ${error.message}`);
                     if (error.message.includes("429") || error.message.includes("request limit reached")) {
                         if (attempt === maxRetries) {
                             console.error("Limite de requisições atingido.");
@@ -622,6 +483,7 @@
             const buyButton = document.getElementById("buyTickets");
             const raffleStatus = document.getElementById("raffleStatus");
             if (!buyButton || !raffleStatus) return;
+
             if (!isWalletConnected) {
                 buyButton.innerText = "Conecte sua wallet primeiro";
                 buyButton.disabled = true;
@@ -647,7 +509,7 @@
         }
 
         async function monitorTransaction(method, checkFn, successMessage) {
-            const maxAttempts = 10; // 30 seconds / 3 seconds per attempt
+            const maxAttempts = 10;
             let attempts = 0;
             showProcessingPopup();
             while (attempts < maxAttempts) {
@@ -683,7 +545,7 @@
             isProcessing = true;
             showProcessingPopup();
             try {
-                const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                const isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
                 if (!isRaffleOpen) {
                     showErrorPopup("O sorteio está fechado.");
                     return;
@@ -700,23 +562,21 @@
                     showErrorPopup("Username do X inválido. Insira um username válido.");
                     return;
                 }
-                const initialTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-                const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+                const initialTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
+                const ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
                 const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
                 console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
                 try {
-                    const tx = await contract.methods.buyTickets(quantity, alias).send({
-                        from: userAddress,
-                        value: totalValue
-                    });
+                    const tx = await contract.getMethods().buyTickets(quantity, alias).send({ from: userAddress, value: totalValue });
                     const checkFn = async () => {
-                        const currentTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
+                        const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
                         return {
-                            success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
-                            message: "Obrigado por ajudar a comunidade Monad. Boa Sorte!"
+                            success: parseInt(currentTicketCount);
+                            > parseInt(initialTicketCount);
+                            message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!");
                         };
                     };
-                    await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa Sorte!");
+                    await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa sorte na rifa!");
                 } catch (error) {
                     if (error.code === 4001 || error.message.includes("user rejected")) {
                         hidePopup("processingPopup");
@@ -724,337 +584,382 @@
                         return;
                     }
                     throw error;
+                } catch (error) {
+                    console.error("Erro crítico ao comprar tickets:", error);
+                    showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
+                } finally {
+                    isProcessing = false;
+                    hidePopup("processingPopup");
                 }
-            } catch (error) {
-                console.error("Erro crítico ao comprar tickets:", error);
-                showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
             }
-        }
 
-        async function handleDrawWinner() {
-            if (isProcessing) {
-                showProcessingPopup();
-                return;
-            }
-            if (!isWalletConnected) {
-                showErrorPopup("Conecte sua carteira primeiro.");
-                return;
-            }
-            isProcessing = true;
-            showProcessingPopup();
-            try {
-                const owner = await retryCall(() => contract.methods.owner().call());
-                if (userAddress.toLowerCase() !== owner.toLowerCase()) {
-                    showErrorPopup("Apenas o dono do contrato pode sortear o ganhador.");
+            async function handleDrawWinner() {
+                if (isProcessing) {
+                    showProcessingPopup();
                     return;
                 }
-                const initialPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
-                console.log("Enviando transação para sortear ganhador...");
+                if (!isWalletConnected) {
+                    showErrorPopup("Conecte sua carteira principal primeiro.");
+                    return;
+                }
+                isProcessing = true;
+                showProcessingPopup();
                 try {
-                    const tx = await contract.methods.drawWinner().send({ from: userAddress });
-                    const checkFn = async () => {
-                        const currentPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
-                        if (currentPastWinners.length > initialPastWinners.length) {
-                            const winner = currentPastWinners[currentPastWinners.length - 1];
-                            const winnerTwitter = await retryCall(() => contract.methods.getAlias(winner).call());
+                    const owner = await retryCall(() => contract.getMethods().owner().call());
+                    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+                        showErrorPopup("Apenas o dono do contrato pode sortear o ganhador.");
+                        return;
+                    }
+                    const initialPastWinners = await retryCall(() => contract.getMethods().getPastWinners().call());
+                    console.log("Enviando transação para sortear ganhador...");
+                    try {
+                        const tx = await contract.getMethods().drawWinner().send({ from: userAddress });
+                        const checkFn = async () => {
+                            const currentPastWinners = await retryCall(() => contract.getMethods().getPastWinners().call());
+                            if (currentPastWinners.length > initialPastWinners.length) {
+                                const winner = currentPastWinners[currentPastWinners.length - 1];
+                                const winnerTwitter = await retryCall(() => contract.getMethods().getAlias(winner).call());
+                                return {
+                                    success: true,
+                                    message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter || 'N/A'})`
+                                };
+                            }
+                            return { success: false };
+                        };
+                        await monitorTransaction("drawWinner", checkFn, "Sorteio realizado com sucesso!");
+                    } catch (error) {
+                        if (error.code === 4001 || error.message.includes("user rejected")) {
+                            hidePopup("processingPopup");
+                            showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
+                            return;
+                        }
+                        throw error;
+                    }
+                } catch (error) {
+                    console.error("Erro crítico ao sortear ganhador:", error);
+                    showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
+                } finally {
+                    isProcessing = false;
+                    hidePopup("processingPopup");
+                }
+            }
+
+            async function handleRefundParticipants() {
+                if (isProcessing) {
+                    showProcessingPopup();
+                    return;
+                }
+                if (!isWalletConnected) {
+                    showErrorPopup("Conecte sua carteira principal primeiro.");
+                    return;
+                }
+                isProcessing = true;
+                showProcessingPopup();
+                try {
+                    const owner = await retryCall(() => contract.getMethods().owner().call());
+                    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+                        showErrorPopup("Apenas o dono do contrato pode realizar reembolsos.");
+                        return;
+                    }
+                    const initialBalance = await retryCall(() => contract.getMethods().getContractBalance().call());
+                    console.log("Executando reembolso...");
+                    try {
+                        const tx = await contract.getMethods().refundParticipants().send({ from: userAddress });
+                        const checkFn = async () => {
+                            const currentBalance = await retryCall(() => contract.getMethods().getContractBalance().call());
                             return {
-                                success: true,
-                                message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter || 'N/A'})`
+                                success: web3.utils.toBN(currentBalance).isZero(),
+                                message: "Reembolsos realizados com sucesso!"
                             };
-                        }
-                        return { success: false };
-                    };
-                    await monitorTransaction("drawWinner", checkFn, "Sorteio realizado com sucesso!");
-                } catch (error) {
-                    if (error.code === 4001 || error.message.includes("user rejected")) {
-                        hidePopup("processingPopup");
-                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
-                        return;
-                    }
-                    throw error;
-                }
-            } catch (error) {
-                console.error("Erro crítico ao sortear ganhador:", error);
-                showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
-            }
-        }
-
-        async function handleRefundParticipants() {
-            if (isProcessing) {
-                showProcessingPopup();
-                return;
-            }
-            if (!isWalletConnected) {
-                showErrorPopup("Conecte sua carteira primeiro.");
-                return;
-            }
-            isProcessing = true;
-            showProcessingPopup();
-            try {
-                const owner = await retryCall(() => contract.methods.owner().call());
-                if (userAddress.toLowerCase() !== owner.toLowerCase()) {
-                    showErrorPopup("Apenas o dono do contrato pode realizar reembolsos.");
-                    return;
-                }
-                const initialBalance = await retryCall(() => contract.methods.getContractBalance().call());
-                console.log("Executando reembolso...");
-                try {
-                    const tx = await contract.methods.refundParticipants().send({ from: userAddress });
-                    const checkFn = async () => {
-                        const currentBalance = await retryCall(() => contract.methods.getContractBalance().call());
-                        return {
-                            success: web3.utils.toBN(currentBalance).isZero(),
-                            message: "Reembolsos realizados com sucesso!"
                         };
-                    };
-                    await monitorTransaction("refundParticipants", checkFn, "Reembolsos realizados com sucesso!");
+                        await monitorTransaction("refundParticipants", checkFn, "Reembolsos realizados com sucesso!");
+                    } catch (error) {
+                        if (error.code === 4001 || error.message.includes("user rejected")) {
+                            hidePopup("processingPopup");
+                            showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
+                            return;
+                        }
+                        throw error;
+                    }
                 } catch (error) {
-                    if (error.code === 4001 || error.message.includes("user rejected")) {
-                        hidePopup("processingPopup");
-                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
-                        return;
-                    }
-                    throw error;
+                    console.error("Erro crítico ao reembolsar participantes:", error);
+                    showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
+                } finally {
+                    isProcessing = false;
+                    hidePopup("processingPopup");
                 }
-            } catch (error) {
-                console.error("Erro crítico ao reembolsar participantes:", error);
-                showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
             }
-        }
 
-        function setupMenuCloseListener() {
-            let isMouseOverButton = false, isMouseOverMenu = false;
-            const walletButton = document.getElementById("walletButton");
-            const walletMenu = document.getElementById("walletMenu");
-            walletButton.addEventListener("mouseenter", () => {
-                isMouseOverButton = true;
-                if (isWalletConnected) {
-                    walletMenu.classList.remove("hidden");
-                    console.log("Menu aberto (mouseenter no botão)");
-                }
-            });
-            walletButton.addEventListener("mouseleave", () => {
-                isMouseOverButton = false;
-                console.log("Mouse saiu do botão");
-            });
-            walletMenu.addEventListener("mouseenter", () => {
-                isMouseOverMenu = true;
-                console.log("Mouse sobre o menu");
-            });
-            walletMenu.addEventListener("mouseleave", () => {
-                isMouseOverMenu = false;
-                console.log("Mouse saiu do menu");
-            });
-            document.addEventListener("click", (e) => {
-                if (!isMouseOverButton && !isMouseOverMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
-                    walletMenu.classList.add("hidden");
-                    console.log("Menu fechado (click fora)");
-                }
-            });
-        }
-
-        function showErrorPopup(message) {
-            console.log("Exibindo erro:", message);
-            document.getElementById("errorMessage").innerText = message;
-            document.getElementById("errorPopup").style.display = "block";
-            document.getElementById("popupOverlay").style.display = "block";
-        }
-
-        function showProcessingPopup() {
-            document.getElementById("processingPopup").style.display = "block";
-            document.getElementById("popupOverlay").style.display = "block";
-        }
-
-        function showThanksPopup(message) {
-            document.getElementById("thanksMessage").innerText = message;
-            document.getElementById("thanksPopup").style.display = "block";
-            document.getElementById("popupOverlay").style.display = "block";
-        }
-
-        function hidePopup(popupId) {
-            document.getElementById(popupId).style.display = "none";
-            if (document.getElementById("errorPopup").style.display !== "block" &&
-                document.getElementById("processingPopup").style.display !== "block" &&
-                document.getElementById("thanksPopup").style.display !== "block" &&
-                document.getElementById("usernamePopup").style.display !== "block" &&
-                document.getElementById("metamaskMobilePopup").style.display !== "block" &&
-                document.getElementById("cookieConsent").style.display !== "block") {
-                document.getElementById("popupOverlay").style.display = "none";
-            }
-        }
-
-        function acceptCookies() {
-            acceptedCookies = true;
-            Cookies.set("acceptedCookies", "true", { expires: 365 });
-            hidePopup("cookieConsent");
-        }
-
-        function setupImage3DEffect() {
-            const image = document.getElementById("sorteioImage");
-            const imageRect = image.getBoundingClientRect();
-            image.addEventListener("mousemove", (e) => {
-                const x = e.clientX - imageRect.left;
-                const y = e.clientY - imageRect.top;
-                const centerX = imageRect.width / 2;
-                const centerY = imageRect.height / 2;
-                const maxTilt = 20;
-                const tiltX = ((centerY - y) / centerY) * maxTilt;
-                const tiltY = ((x - centerX) / centerX) * maxTilt;
-                image.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-            });
-            image.addEventListener("mouseleave", () => {
-                image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
-            });
-        }
-
-        async function updateUI() {
-            try {
-                let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false, lastWinner = null, lastWinnerTwitter = null, owner = null;
-                let currentQuantity = 1;
-                const ticketQuantityInput = document.getElementById("ticketQuantity");
-                if (ticketQuantityInput && ticketQuantityInput.value) {
-                    currentQuantity = parseFloat(ticketQuantityInput.value) || 1;
-                }
-                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
-                    ({ ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner } = cache.data);
-                } else {
-                    try {
-                        console.log("Lendo ticketPrice...");
-                        ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
-                        currentTicketPrice = ticketPrice; // Atualiza preço global
-                    } catch (error) {
-                        console.error("Erro ao ler ticketPrice:", error);
+            function setupMenu() {
+                let isMouseOverButton = false;
+                let isMouseOverMenu = false;
+                const walletButton = document.getElementById("walletButton");
+                const walletMenu = document.getElementById("walletMenu");
+                if (!walletButton || !walletMenu) return;
+                walletButton.addEventListener("mouseenter", () => {
+                    isMouseOverButton = true;
+                    if (isWalletConnected) {
+                        walletMenu.classList.remove("hidden");
+                        console.log("Menu aberto (mouseenter no botão)");
                     }
-                    try {
-                        console.log("Lendo participantes...");
-                        participants = await retryCall(() => contract.methods.getParticipants().call());
-                    } catch (error) {
-                        console.error("Erro ao ler participantes:", error);
-                    }
-                    try {
-                        console.log("Lendo status do sorteio...");
-                        isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
-                    } catch (error) {
-                        console.error("Erro ao ler isRaffleOpen:", error);
-                    }
-                    try {
-                        console.log("Lendo último ganhador...");
-                        const pastWinners = await retryCall(() => contract.methods.getPastWinners().call());
-                        if (pastWinners.length > 0) {
-                            lastWinner = pastWinners[pastWinners.length - 1];
-                            lastWinnerTwitter = await retryCall(() => contract.methods.getAlias(lastWinner).call());
-                        }
-                    } catch (error) {
-                        console.error("Erro ao ler pastWinners ou getAlias:", error);
-                    }
-                    try {
-                        console.log("Lendo owner...");
-                        owner = await retryCall(() => contract.methods.owner().call());
-                    } catch (error) {
-                        console.error("Erro ao ler owner:", error);
-                    }
-                    if (userAddress && isWalletConnected) {
-                        try {
-                            console.log("Lendo ticketCount para:", userAddress);
-                            ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-                        } catch (error) {
-                            console.error("Erro ao ler ticketCount:", error);
-                        }
-                    }
-                    cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner };
-                    cache.timestamp = Date.now();
-                }
-                const drawWinnerButton = document.getElementById("drawWinnerButton");
-                const refundParticipantsButton = document.getElementById("refundParticipantsButton");
-                if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
-                    drawWinnerButton.classList.remove("hidden");
-                    refundParticipantsButton.classList.remove("hidden");
-                } else {
-                    drawWinnerButton.classList.add("hidden");
-                    refundParticipantsButton.classList.add("hidden");
-                }
-                const ticketSection = document.getElementById("ticketSection");
-                const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
-                if (!isRaffleOpen && lastWinner) {
-                    ticketSection.innerHTML = `
-                        <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || 'N/A'})</p>
-                    `;
-                } else if (!isRaffleOpen) {
-                    ticketSection.innerHTML = `
-                        <p class="text-base"><strong>Nenhum ganhador ainda.</strong></p>
-                    `;
-                } else if (!isCurrentlyBuyForm) {
-                    ticketSection.innerHTML = BUY_TICKETS_FORM;
-                    const newQuantityInput = document.getElementById("ticketQuantity");
-                    if (newQuantityInput) {
-                        newQuantityInput.value = currentQuantity;
-                        newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
-                    }
-                    document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    document.getElementById("participantCount").innerText = participants.length;
-                    document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
-                    const buyTicketsButton = document.getElementById("buyTickets");
-                    if (buyTicketsButton) {
-                        buyTicketsButton.addEventListener("click", debounce(handleBuyTickets, 500));
-                    }
-                } else {
-                    document.getElementById("ticketPrice").innerText = ticketPrice === "0.2" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    document.getElementById("participantCount").innerText = ticketCount.length;
-                    document.getElementById("participantCount").innerText = ticketCount;
-                    document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Connecte sua wallet";
-                }
-                if (isWalletConnected) {
-                    await updateWalletBalance();
-                    debouncedUpdateTotalCost();
-                    updateBuyButton(isRaffleOpen);
-                } else {
-                    const walletBalanceElement = document.getElementById("walletBalance");
-                    const totalCostElement = document.getElementById("totalCost");
-                    if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
-                    if (totalCostElement) totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    updateBuyButton(isRaffleOpen);
-                }
-                const participantsList = document.getElementById("participantsList");
-                participantsList.innerHTML = "";
-                const participantData = [];
-                const uniqueParticipants = [...new Set(participants)];
-                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
-                    const participant = uniqueParticipants[i];
-                    if (!web3.utils.isAddress(participant)) continue;
-                    let alias = "Desconhecido";
-                    let count = 0;
-                    try {
-                        alias = await retryCall(() => contract.getMethods().getAlias(participant).call());
-                        count = await retryCall(() => contract.getMethods().getTicketCount(participant).call());
-                    } catch (error) {
-                        console.error("Erro ao obter dados do participante ${participant}:", error);
-                    }
-                    participantData.push({ address: participant, count });
-                }
-                participantData.sort((a, b) => b.count - a.count);
-                participantData.forEach(({ address, alias, count }, index) => {
-                    const li = document.createElement("li");
-                    li.setAttribute("data-rank", index + 1);
-                    li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
-                    participantsList.appendChild(li);
                 });
-                document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
-            } catch (error) {
+                walletButton.addEventListener("mouseleave", () => {
+                    isMouseOverButton = false;
+                    console.log("Mouse saiu do botão");
+                });
+                walletMenu.addEventListener("mouseenter", () => {
+                    isMouseOverMenu = true;
+                    console.log("Mouse sobre o menu");
+                });
+                walletMenu.addEventListener("mouseleave", () => {
+                    isMouseOverMenu = false;
+                    console.log("Mouse saiu do menu");
+                });
+                document.addEventListener("click", (e) => {
+                    if (!isMouseOverButton && !isMouseOverMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
+                        walletMenu.classList.add("hidden");
+                        console.log("Menu fechado (click fora)");
+                    }
+                });
+            }
+
+            function showErrorPopup(message) {
+                console.log("Exibindo erro:", message);
+                const errorMessage = document.getElementById("errorMessage");
+                const errorPopup = document.getElementById("errorPopup");
+                const popupOverlay = document.getElementById("popupOverlay");
+                if (errorMessage && errorPopup && popupOverlay) {
+                    errorMessage.innerText = message;
+                    errorPopup.style.display = "block";
+                    popupOverlay.style.display = "block";
+                }
+            }
+
+            function showProcessingPopup() {
+                const processingPopup = document.getElementById("processingPopup");
+                const popupOverlay = document.getElementById("popupOverlay");
+                if (processingPopup && popupOverlay) {
+                    processingPopup.style.display = "block";
+                    popupOverlay.style.display = "block";
+                }
+            }
+
+            function showThanksPopup(message) {
+                const thanksMessage = document.getElementById("thanksMessage");
+                const thanksPopup = document.getElementById("thanksPopup");
+                const popupOverlay = document.getElementById("popupOverlay");
+                if (thanksMessage && thanksPopup && popupOverlay) {
+                    thanksMessage.innerText = message;
+                    thanksPopup.style.display = "block";
+                    popupOverlay.style.display = "block";
+                }
+            }
+
+            function hidePopup(popupId) {
+                const popup = document.getElementById(popupId);
+                if (popup) popup.style.display = "none";
+                const popups = [
+                    "errorPopup",
+                    "processingPopup",
+                    "thanksPopup",
+                    "usernamePopup",
+                    "metamaskMobilePopup",
+                    "cookieConsent"
+                ];
+                const popupOverlay = document.getElementById("popupOverlay");
+                if (popupOverlay && !popups.some(p => document.getElementById(p)?.style.display === "block")) {
+                    popupOverlay.style.display = "none";
+                }
+            }
+
+            function acceptCookies() {
+                acceptedCookies = true;
+                Cookies.set("acceptedCookies", "true", { expires: 365 });
+                hidePopup("cookieConsent");
+            }
+
+            function setupImage3DEffect() {
+                const image = document.getElementById("sorteioImage");
+                if (!image) return;
+                const imageRect = image.getBoundingClientRect();
+                image.addEventListener("mousemove", (event) => {
+                    const x = event.clientX - imageRect.left;
+                    const y = event.clientY - imageRect.top;
+                    const centerX = imageRect.width / 2;
+                    const centerY = imageRect.height / 2;
+                    const maxTilt = 20;
+                    const tiltX = ((centerY - y) / centerY) * maxTilt;
+                    const tiltY = ((x - centerX) / centerX) * maxTilt;
+                    image.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+                });
+                image.addEventListener("mouseleave", () => {
+                    image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
+                });
+            }
+
+            async function updateUI() {
+                try {
+                    let ticketPrice = "0", ticketCount = "0", participants = [], isRaffleOpen = false, lastWinner = null, lastWinnerTwitter = null, owner = null;
+                    let currentQuantity = 1;
+                    const ticketQuantityInput = document.getElementById("ticketQuantity");
+                    if (ticketQuantityInput && ticketQuantityInput.value) {
+                        currentQuantity = parseInt(ticketQuantityInput.value) || 1;
+                    }
+                    if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
+                        ({ ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner } = cache.data);
+                    } else {
+                        try {
+                            console.log("Lendo ticketPrice...");
+                            ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
+                            currentTicketPrice = ticketPrice;
+                        } catch (error) {
+                            console.error("Erro ao ler ticketPrice: ", error);
+                            }
+                        } catch {
+                            console.log("Lendo participantes...");
+                            try {
+                            participants = await retryCall(() => contract.getMethods().getParticipants().call());
+                        } catch (error) {
+                            console.error("Erro ao ler participantes:", error);
+                        }
+                        try {
+                            console.log("Lendo status do sorteio...");
+                            isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
+                        } catch (error) {
+                            console.error("Erro ao ler isRaffleOpen:", error);
+                        }
+                        try {
+                            console.log("Lendo último ganhador...");
+                            const pastWinners = await retryCall(() => contract.getMethods().getPastWinners().call());
+                            if (pastWinners && pastWinners.length > 0) {
+                                lastWinner = pastWinners[pastWinners.length - 1];
+                                lastWinnerTwitter = await retryCall(() => contract.getMethods().getAlias(lastWinner).call());
+                            }
+                        } catch (error) {
+                            console.error("Erro ao ler pastWinners ou getAlias:", error);
+                        }
+                        try {
+                            console.log("Lendo owner...");
+                            owner = await retryCall(() => contract.getMethods().owner().call());
+                        } catch (error) {
+                            console.error("Erro ao ler owner:", error);
+                        }
+                        if (isWalletConnected && userAddress) {
+                            try {
+                                console.log("Lendo ticketCount para:", userAddress);
+                                ticketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
+                            } catch (error) {
+                                console.error("Erro ao ler ticketCount:", error);
+                            }
+                        }
+                        cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner };
+                        cache.timestamp = Date.now();
+                    }
+                    const drawWinnerButton = document.getElementById("drawWinnerButton");
+                    const refundParticipantsButton = document.getElementById("refundParticipantsButton");
+                    if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
+                        if (drawWinnerButton) drawWinnerButton.classList.remove("hidden");
+                        if (refundParticipantsButton) refundParticipantsButton.classList.remove("hidden");
+                    } else {
+                        if (drawWinnerButton) drawWinnerButton.classList.add("hidden");
+                        if (refundParticipantsButton) refundParticipantsButton.classList.add("hidden");
+                    }
+                    const ticketSection = document.getElementById("ticketSection");
+                    if (!ticketSection) return;
+                    const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
+                    if (!isRaffleOpen && lastWinner) {
+                        ticketSection.innerHTML = `
+                            <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || 'N/A'})</p>
+                        `;
+                    } else if (!isRaffleOpen) {
+                        ticketSection.innerHTML = `
+                            <p class="text-base"><strong>Nenhum ganhador ainda.</strong></p>
+                        `;
+                    } else if (!isCurrentlyBuyForm) {
+                        ticketSection.innerHTML = BUY_TICKETS_FORM;
+                        const newQuantityInput = document.getElementById("ticketQuantity");
+                        if (newQuantityInput) {
+                            newQuantityInput.value = currentQuantity;
+                            newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
+                        }
+                        const ticketPriceElement = document.getElementById("ticketPrice");
+                        const participantCountElement = document.getElementById("participantCount");
+                        const ticketCountElement = document.getElementById("ticketCount");
+                        if (ticketPriceElement) {
+                            ticketPriceElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(totalPrice, "ether");
+                        }
+                        if (participantCountElement) {
+                            participantCountElement.innerText = participants.length;
+                        }
+                        if (ticketCountElement) {
+                            ticketCountElement.innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                        }
+                        const buyTicketsButton = document.getElementById("buyTickets");
+                        if (buyTicketsButton) {
+                            buyTicketsButton.addEventListener("click", debounce(handleBuyTickets, 500));
+                        }
+                    } else {
+                        const ticketPriceElement = document.getElementById("ticketPrice");
+                        const participantCountElement = document.getElementById("participantCount");
+                        const ticketCountElement = document.getElementById("ticketCount");
+                        if (ticketPriceElement) {
+                            ticketPriceElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(totalPrice, "ether");
+                        }
+                        if (participantCountElement) {
+                            participantCountElement.innerText = participants.length;
+                        }
+                        if (ticketCountElement) {
+                            ticketCountElement.innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                        }
+                    }
+                    if (isWalletConnected) {
+                        await updateWalletBalance();
+                        debouncedUpdateTotalCost();
+                        updateBuyButton(isRaffleOpen);
+                    } else {
+                        const walletBalanceElement = document.getElementById("walletBalance");
+                        const totalCostElement = document.getElementById("totalCost");
+                        if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
+                        if (totalCostElement) totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(totalPrice.toString(), "ether");
+                        updateBuyButton(isRaffleOpen);
+                    }
+                    const participantsList = document.getElementById("participantsList");
+                    const participantsSection = document.getElementById("participantsSection");
+                    if (!participantsList || !participantsSection) return;
+                    participantsList.innerHTML = "";
+                    const participantData = [];
+                    const uniqueParticipants = [...new Set(participants)];
+                    for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+                        const participant = uniqueParticipants[i];
+                        if (!web3.utils.isAddress(participant)) continue;
+                        let alias = "Desconhecido";
+                        let count = 0;
+                        try {
+                            alias = await retryCall(() => contract.getMethods().getAlias(participant).call());
+                            count = await retryCall(() => contract.getMethods().getTicketCount(participant).call());
+                        } catch (error) {
+                            console.error(`Erro ao obter dados do participante ${participant}:`, error);
+                        }
+                        participantData.push({ address: participant, alias, count });
+                    }
+                    participantData.sort((a, b) => b.count - a.count);
+                    participantData.forEach(({ address, alias, count }, index) => {
+                        const li = document.createElement("li");
+                        li.setAttribute("data-rank", index + 1);
+                        li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
+                        participantsList.appendChild(li);
+                    });
+                    if (participantsSection) {
+                        participantsSection.style.display = participantData.length > 0 ? "block" : "none";
+                    }
+                } catch (error) {
                     console.error("Erro ao atualizar UI:", error);
                     showErrorPopup("Erro ao atualizar a interface. Tente novamente.");
                 }
             }
 
             window.onload = init;
-        </script>
-    </body>
+        }
+    </script>
+</body>
 </html>
