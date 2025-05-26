@@ -232,7 +232,7 @@
                     </div>
                     <div class="p-2 border-b border-gray-600">
                         <p><strong>X:</strong> <span id="xUsernameDisplay"></span></p>
-                        <p class="text-sm text-gray-400">Errou o @? Reconecte a wallet e compre mais 1 ticket ou entre em contato com <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-600">0xGus</a></p>
+                        <p class="text-sm text-gray-400">Errou o @? Reconecte a wallet e compre mais 1 ticket ou entre em contato com <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-bright">0xGus</a></p>
                     </div>
                     <button id="disconnectWallet" class="w-full text-left p-2 secondary-button">Desconectar Carteira</button>
                 </div>
@@ -241,9 +241,9 @@
     </header>
     <main class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 flex-1">
         <div class="md:w-1/2">
-            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 1 + 5 MON</h2>
+            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 2 + 7 MON</h2>
             <div class="overflow-hidden rounded-lg">
-                <img id="sorteioImage" src="/images/mv1.avif" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
+                <img id="sorteioImage" src="/images/mv2.jpg" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
             </div>
         </div>
         <div class="md:w-1/2">
@@ -282,7 +282,7 @@
     </section>
     <footer class="bg-gray-800 text-white w-full py-4">
         <div class="container mx-auto px-4 text-center">
-            <p>Desenvolvido por <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-600">0xGus</a></p>
+            <p>Desenvolvido por <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-bright">0xGus</a></p>
         </div>
     </footer>
     <script>
@@ -325,6 +325,28 @@
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
 
+        const BUY_TICKETS_FORM = `
+            <p><strong>Preço do Ticket:</strong> <span id="ticketPrice">0.2</span> MON</p>
+            <p><strong>Carteiras Participantes:</strong> <span id="participantCount">0</span></p>
+            <p><strong>Seus Tickets:</strong> <span id="ticketCount">Conecte sua Wallet</span></p>
+            <div id="buyTicketsForm" class="mt-4">
+                <div class="flex items-center gap-4">
+                    <div>
+                        <label for="ticketQuantity" class="block text-sm font-medium">Quantidade de Tickets:</label>
+                        <input id="ticketQuantity" type="number" min="1" step="1" value="1" class="border border-gray-600 bg-gray-800 text-white p-2 w-24 rounded">
+                        <p id="ticketQuantityError" class="error-text text-sm mt-1 hidden">Por favor, insira um número inteiro maior ou igual a 1.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Saldo:</label>
+                        <p id="walletBalance" class="text-gray-400">0 MON</p>
+                    </div>
+                </div>
+                <p><strong>Total:</strong> <span id="totalCost">0.2</span> MON</p>
+                <p id="raffleStatus" class="error-text mt-2 hidden">Sorteio Fechado</p>
+                <button id="buyTickets" class="disabled-button w-full mt-2" disabled>Conecte sua wallet primeiro</button>
+            </div>
+        `;
+
         async function init() {
             try {
                 console.log("Inicializando Web3 com RPC público...");
@@ -361,8 +383,6 @@
             }
             document.getElementById("walletButton").addEventListener("click", debounce(connectWallet, 500));
             document.getElementById("disconnectWallet").addEventListener("click", disconnectWallet);
-            document.getElementById("buyTickets").addEventListener("click", debounce(handleBuyTickets, 500));
-            document.getElementById("ticketQuantity").addEventListener("input", updateTotalCost);
             document.getElementById("acceptCookies").addEventListener("click", acceptCookies);
             document.getElementById("closeErrorPopup").addEventListener("click", () => hidePopup("errorPopup"));
             document.getElementById("closeThanksPopup").addEventListener("click", () => hidePopup("thanksPopup"));
@@ -529,15 +549,16 @@
         }
 
         async function updateTotalCost() {
-            const inputValue = document.getElementById("ticketQuantity").value;
+            const input = document.getElementById("ticketQuantity");
+            if (!input) return;
             const quantityError = document.getElementById("ticketQuantityError");
-            let quantity = parseFloat(inputValue);
-            if (!inputValue || quantity < 1 || !Number.isInteger(quantity)) {
+            let quantity = parseFloat(input.value);
+            if (!input.value || quantity < 1 || !Number.isInteger(quantity)) {
                 quantityError.classList.remove("hidden");
                 quantity = 1;
+                input.value = 1;
             } else {
                 quantityError.classList.add("hidden");
-                quantity = Math.floor(quantity);
             }
             let ticketPrice;
             if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
@@ -549,25 +570,30 @@
                     cache.data.ticketPrice = ticketPrice;
                     cache.timestamp = Date.now();
                 } catch (error) {
-                    console.error("Erro ao obter ticketPrice: ", error);
+                    console.error("Erro ao obter ticketPrice:", error);
                     ticketPrice = "0";
                 }
             }
             const total = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice));
-            document.getElementById("totalCost").innerText = web3.utils.fromWei(total, "ether");
+            const totalCostElement = document.getElementById("totalCost");
+            if (totalCostElement) {
+                totalCostElement.innerText = web3.utils.fromWei(total, "ether");
+            }
         }
 
         async function updateWalletBalance() {
+            const walletBalanceElement = document.getElementById("walletBalance");
+            if (!walletBalanceElement) return;
             if (!userAddress || !isWalletConnected) {
-                document.getElementById("walletBalance").innerText = "0 MON";
+                walletBalanceElement.innerText = "0 MON";
                 return;
             }
             try {
                 const balance = await web3.eth.getBalance(userAddress);
-                document.getElementById("walletBalance").innerText = `${parseFloat(web3.utils.fromWei(balance, "ether")).toFixed(2)} MON`;
+                walletBalanceElement.innerText = `${parseFloat(web3.utils.fromWei(balance, "ether")).toFixed(2)} MON`;
             } catch (error) {
                 console.error("Erro ao obter saldo:", error);
-                document.getElementById("walletBalance").innerText = "Erro";
+                walletBalanceElement.innerText = "Erro";
             }
         }
 
@@ -585,6 +611,10 @@
                         const delay = baseDelay * Math.pow(2, attempt - 1);
                         console.warn(`Erro 429, tentando novamente após ${delay}ms...`);
                         await new Promise(resolve => setTimeout(resolve, delay));
+                    } else if (error.message.includes("missing revert data")) {
+                        console.warn("Erro de contrato (missing revert data), tentando novamente...");
+                        if (attempt === maxRetries) throw error;
+                        await new Promise(resolve => setTimeout(resolve, baseDelay));
                     } else {
                         throw error;
                     }
@@ -595,6 +625,7 @@
         function updateBuyButton(isRaffleOpen = true) {
             const buyButton = document.getElementById("buyTickets");
             const raffleStatus = document.getElementById("raffleStatus");
+            if (!buyButton || !raffleStatus) return;
             if (!isWalletConnected) {
                 buyButton.innerText = "Conecte sua wallet primeiro";
                 buyButton.disabled = true;
@@ -637,8 +668,10 @@
                     return;
                 }
                 const alias = xUsername;
-                const quantity = Math.floor(parseFloat(document.getElementById("ticketQuantity").value));
-                if (isNaN(quantity) || quantity < 1 || !Number.isInteger(quantity)) {
+                const quantityInput = document.getElementById("ticketQuantity");
+                if (!quantityInput) throw new Error("Campo de quantidade não encontrado.");
+                const quantity = Math.floor(parseFloat(quantityInput.value));
+                if (quantity < 1 || !Number.isInteger(quantity)) {
                     showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
                     return;
                 }
@@ -648,7 +681,7 @@
                 }
                 const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
                 const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
-                console.log("Enviando transação de compra...", Fluorescent { userAddress, quantity, totalValue, alias });
+                console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
                 const tx = await contract.methods.buyTickets(quantity, alias).send({
                     from: userAddress,
                     value: totalValue
@@ -757,18 +790,18 @@
         async function updateUI() {
             try {
                 let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false, lastWinner = null, lastWinnerTwitter = null;
-                if (cache.data && Date.now() - cache.timestamp < cache.validDuration)) {
+                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
                     ({ ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter } = cache.data);
                 } else {
                     try {
                         console.log("Lendo ticketPrice...");
                         ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
                     } catch (error) {
-                        console.error("Erro ao ao ler ticketPrice:", error);
+                        console.error("Erro ao ler ticketPrice:", error);
                     }
                     try {
                         console.log("Lendo participantes...");
-                        participants = await retryCall(() => contract.getParticipants().call());
+                        participants = await retryCall(() => contract.methods.getParticipants().call());
                     } catch (error) {
                         console.error("Erro ao ler participantes:", error);
                     }
@@ -780,10 +813,10 @@
                     }
                     try {
                         console.log("Lendo último ganhador...");
-                        const pastWinners = await retryCall(() => contract.getPastWinners().call());
+                        const pastWinners = await retryCall(() => contract.methods.getPastWinners().call());
                         if (pastWinners.length > 0) {
                             lastWinner = pastWinners[pastWinners.length - 1];
-                            lastWinnerTwitter = await retryCall(() => contract.getAlias(lastWinner).call());
+                            lastWinnerTwitter = await retryCall(() => contract.methods.getAlias(lastWinner).call());
                         }
                     } catch (error) {
                         console.error("Erro ao ler pastWinners ou getAlias:", error);
@@ -791,7 +824,7 @@
                     if (userAddress && isWalletConnected) {
                         try {
                             console.log("Lendo ticketCount para:", userAddress);
-                            ticketCount = await retryCall(() => contract.getTicketCount(userAddress).call());
+                            ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
                         } catch (error) {
                             console.error("Erro ao ler ticketCount:", error);
                         }
@@ -799,50 +832,32 @@
                     cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter };
                     cache.timestamp = Date.now();
                 }
-                document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                document.getElementById("participantCount").innerText = participants.length;
-                document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte a Wallet";
                 const ticketSection = document.getElementById("ticketSection");
                 if (!isRaffleOpen && lastWinner) {
                     ticketSection.innerHTML = `
-                        <p><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || "N/A"})</p>
+                        <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || "N/A"})</p>
                     `;
                 } else if (!isRaffleOpen) {
                     ticketSection.innerHTML = `
-                        <p><strong>Nenhum ganhador ainda.</strong></p>
-                    }`;
-                } else {
-                    ticketSection.innerHTML = `
-                        <p><strong>Preço do Ticket:</strong> <span id="ticketPrice">${ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether")}</span> MON</p>
-                        <p><strong>Carteiras Participantes:</strong> <span id="participantCount">${participants.length}</span></p>
-                        <p><strong>Seus Tickets:</strong> <span id="ticketCount">${isWalletConnected ? ticketCount : "Conecte a Wallet"}</span></p>
-                        <div id="buyTicketsForm" class="mt-4">
-                            <div class="flex items-center gap-4">
-                                <div>
-                                    <div class="block text-sm font-medium">Quantidade de Tickets:</label>
-                                    <input id="ticketQuantity" type="number" min="1" step="1" value="1" class="border border-gray-600 bg-gray-800 text-white p-2 w-24 rounded">
-                                    <p id="ticketQuantityError" class="error-text text-sm mt-1 hidden">Por favor, insira um número inteiro maior ou igual a 1.</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium">Saldo:</label>
-                                    <p id="walletBalance" class="text-gray-400">${isWalletConnected ? walletBalance : "0"} MON</p>
-                                </div>
-                            </div>
-                            <p><strong>Total:</strong> <span id="totalCost">${ticketPrice === "0" ? "0.2" : web3.utils.fromWei(total, "ether")}</span> MON</p>
-                            <p id="raffleStatus" class="error-text mt-2 ${isRaffleOpen ? 'hidden' : ''}">Sorteio Fechado</p>
-                            <button id="buyTickets" class="${buyButton.classList.contains('disabled-button') ? 'disabled-button' : 'action-button'} w-full mt-2" ${buyButton.disabled ? 'disabled' : ''}>${buyButton.innerText}</button>
-                        </div>
+                        <p class="text-base"><strong>Nenhum ganhador ainda.</strong></p>
                     `;
+                } else {
+                    ticketSection.innerHTML = BUY_TICKETS_FORM;
+                    document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    document.getElementById("participantCount").innerText = participants.length;
+                    document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
                     document.getElementById("ticketQuantity").addEventListener("input", updateTotalCost);
                     document.getElementById("buyTickets").addEventListener("click", debounce(handleBuyTickets, 500));
                 }
                 if (isWalletConnected) {
-                    await updateTotalCost();
                     await updateWalletBalance();
+                    await updateTotalCost();
                     updateBuyButton(isRaffleOpen);
                 } else {
-                    document.getElementById("walletBalance").innerText = "0 MON";
-                    document.getElementById("totalCost").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    const walletBalanceElement = document.getElementById("walletBalance");
+                    const totalCostElement = document.getElementById("totalCost");
+                    if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
+                    if (totalCostElement) totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
                     updateBuyButton(isRaffleOpen);
                 }
                 const participantsList = document.getElementById("participantsList");
@@ -855,7 +870,7 @@
                     let count = 0;
                     try {
                         alias = await retryCall(() => contract.methods.getAlias(participant).call());
-                        count = await retryCall(() => contract.getTicketCount(participant).call());
+                        count = await retryCall(() => contract.methods.getTicketCount(participant).call());
                     } catch (error) {
                         console.error(`Erro ao obter dados do participante ${participant}:`, error);
                     }
@@ -872,6 +887,7 @@
                 document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
             } catch (error) {
                 console.error("Erro ao atualizar UI:", error);
+                showErrorPopup("Erro ao atualizar a interface. Tente novamente.");
             }
         }
 
