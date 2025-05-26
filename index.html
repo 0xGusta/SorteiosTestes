@@ -204,7 +204,7 @@
         <div class="loader"></div>
     </div>
     <div id="thanksPopup" class="popup">
-        <p>Obrigado por ajudar a comunidade Monad. Boa Sorte!</p>
+        <p id="thanksMessage"></p>
         <button id="closeThanksPopup" class="mt-4 action-button">Fechar</button>
     </div>
     <div id="usernamePopup" class="popup">
@@ -239,14 +239,15 @@
             </div>
         </div>
     </header>
-    <div class="container mx-auto px-4 py-4">
+    <div class="container mx-auto px-4 py-4 flex gap-4">
         <button id="drawWinnerButton" class="action-button hidden">Sortear Ganhador</button>
+        <button id="refundParticipantsButton" class="action-button hidden">Reembolsar Participantes</button>
     </div>
     <main class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 flex-1">
         <div class="md:w-1/2">
-            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 1 + 5 MON</h2>
+            <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 2 + 7 MON</h2>
             <div class="overflow-hidden rounded-lg">
-                <img id="sorteioImage" src="/images/mv1.avif" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
+                <img id="sorteioImage" src="/images/mv2.jpg" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
             </div>
         </div>
         <div class="md:w-1/2">
@@ -392,6 +393,7 @@
             document.getElementById("submitUsername").addEventListener("click", submitTwitterUsername);
             document.getElementById("closeMetamaskMobilePopup").addEventListener("click", () => hidePopup("metamaskMobilePopup"));
             document.getElementById("drawWinnerButton").addEventListener("click", debounce(handleDrawWinner, 500));
+            document.getElementById("refundParticipantsButton").addEventListener("click", debounce(handleRefundParticipants, 500));
             setupImage3DEffect();
             setupMenuCloseListener();
             if (!Cookies.get("acceptedCookies") && !acceptedCookies) {
@@ -517,6 +519,7 @@
             document.getElementById("xUsernameDisplay").innerText = "";
             document.getElementById("walletBalance").innerText = "0 MON";
             document.getElementById("drawWinnerButton").classList.add("hidden");
+            document.getElementById("refundParticipantsButton").classList.add("hidden");
             updateBuyButton();
             cache = { data: null, timestamp: 0, validDuration: 60000 };
             updateUI();
@@ -655,6 +658,31 @@
             }
         }
 
+        async function monitorTransaction(method, initialState, checkFn, successMessage) {
+            const maxAttempts = 10; // 30 seconds / 3 seconds per attempt
+            let attempts = 0;
+            showProcessingPopup();
+            while (attempts < maxAttempts) {
+                try {
+                    const result = await checkFn();
+                    if (result.success) {
+                        hidePopup("processingPopup");
+                        showThanksPopup(result.message || successMessage);
+                        cache = { data: null, timestamp: 0, validDuration: 60000 };
+                        await updateUI();
+                        return true;
+                    }
+                } catch (error) {
+                    console.error(`Erro ao monitorar transação (${method}, tentativa ${attempts + 1}):`, error);
+                }
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            hidePopup("processingPopup");
+            showErrorPopup("Erro ao processar a transação. Nenhuma alteração detectada após 30 segundos.");
+            return false;
+        }
+
         async function handleBuyTickets() {
             if (isProcessing) {
                 showProcessingPopup();
@@ -665,13 +693,6 @@
                 return;
             }
             isProcessing = true;
-            showProcessingPopup();
-            let initialTicketCount = 0;
-            try {
-                initialTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-            } catch (error) {
-                console.error("Erro ao obter contagem inicial de tickets:", error);
-            }
             try {
                 const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
                 if (!isRaffleOpen) {
@@ -690,36 +711,31 @@
                     showErrorPopup("Username do X inválido. Insira um username válido.");
                     return;
                 }
+                const initialTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
                 const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
                 const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
                 console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
-                await contract.methods.buyTickets(quantity, alias).send({
+                const txPromise = contract.methods.buyTickets(quantity, alias).send({
                     from: userAddress,
                     value: totalValue
                 });
-                console.log("Transação bem-sucedida");
-                showThanksPopup();
-                cache = { data: null, timestamp: 0, validDuration: 60000 };
-                await updateUI();
-            } catch (error) {
-                console.error("Erro ao comprar tickets:", error);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                try {
+                const checkFn = async () => {
                     const currentTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-                    if (parseInt(currentTicketCount) > parseInt(initialTicketCount)) {
-                        console.log("Tickets confirmados apesar do erro inicial");
-                        showThanksPopup();
-                        cache = { data: null, timestamp: 0, validDuration: 60000 };
-                        await updateUI();
-                        return;
-                    }
-                } catch (verifyError) {
-                    console.error("Erro ao verificar contagem de tickets:", verifyError);
-                }
+                    return {
+                        success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
+                        message: "Obrigado por ajudar a comunidade Monad. Boa Sorte!"
+                    };
+                };
+                await Promise.all([
+                    txPromise.catch(error => console.error("Erro na transação inicial:", error)),
+                    monitorTransaction("buyTickets", initialTicketCount, checkFn, "Obrigado por ajudar a comunidade Monad. Boa Sorte!")
+                ]);
+            } catch (error) {
+                console.error("Erro crítico ao comprar tickets:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
                 } else {
-                    showErrorPopup("Erro ao processar a compra de tickets. Tente novamente.");
+                    showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
                 }
             } finally {
                 isProcessing = false;
@@ -737,25 +753,80 @@
                 return;
             }
             isProcessing = true;
-            showProcessingPopup();
             try {
                 const owner = await retryCall(() => contract.methods.owner().call());
                 if (userAddress.toLowerCase() !== owner.toLowerCase()) {
                     showErrorPopup("Apenas o dono do contrato pode sortear o ganhador.");
                     return;
                 }
+                const initialPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
                 console.log("Enviando transação para sortear ganhador...");
-                const tx = await contract.methods.drawWinner().send({ from: userAddress });
-                console.log("Sorteio realizado:", tx);
-                showThanksPopup("Sorteio realizado com sucesso!");
-                cache = { data: null, timestamp: 0, validDuration: 60000 };
-                await updateUI();
+                const txPromise = contract.methods.drawWinner().send({ from: userAddress });
+                const checkFn = async () => {
+                    const currentPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
+                    if (currentPastWinners.length > initialPastWinners.length) {
+                        const winner = currentPastWinners[currentPastWinners.length - 1];
+                        const winnerTwitter = await retryCall(() => contract.methods.getAlias(winner).call());
+                        return {
+                            success: true,
+                            message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter || 'N/A'})`
+                        };
+                    }
+                    return { success: false };
+                };
+                await Promise.all([
+                    txPromise.catch(error => console.error("Erro na transação inicial:", error)),
+                    monitorTransaction("drawWinner", initialPastWinners, checkFn, "Sorteio realizado com sucesso!")
+                ]);
             } catch (error) {
-                console.error("Erro ao sortear ganhador:", error);
+                console.error("Erro crítico ao sortear ganhador:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
                 } else {
-                    showErrorPopup("Erro ao sortear o ganhador. Tente novamente.");
+                    showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+            }
+        }
+
+        async function handleRefundParticipants() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            if (!isWalletConnected) {
+                showErrorPopup("Conecte sua carteira primeiro.");
+                return;
+            }
+            isProcessing = true;
+            try {
+                const owner = await retryCall(() => contract.methods.owner().call());
+                if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+                    showErrorPopup("Apenas o dono do contrato pode realizar reembolsos.");
+                    return;
+                }
+                const initialBalance = await retryCall(() => contract.methods.getContractBalance().call());
+                console.log("Executando reembolso...");
+                const txPromise = contract.methods.refundParticipants().send({ from: userAddress });
+                const checkFn = async () => {
+                    const currentBalance = await retryCall(() => contract.methods.getContractBalance().call());
+                    return {
+                        success: web3.utils.toBN(currentBalance).isZero(),
+                        message: "Reembolsos realizados com sucesso!"
+                    };
+                };
+                await Promise.all([
+                    txPromise.catch(error => console.error("Erro na transação inicial:", error)),
+                    monitorTransaction("refundParticipants", initialBalance, checkFn, "Reembolsos realizados com sucesso!")
+                ]);
+            } catch (error) {
+                console.error("Erro crítico ao reembolsar participantes:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
+                } else {
+                    showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
                 }
             } finally {
                 isProcessing = false;
@@ -806,12 +877,8 @@
             document.getElementById("popupOverlay").style.display = "block";
         }
 
-        function showThanksPopup(message = "Obrigado por ajudar a comunidade Monad. Boa Sorte!") {
-            document.getElementById("thanksPopup").innerHTML = `
-                <p>${message}</p>
-                <button id="closeThanksPopup" class="mt-4 action-button">Fechar</button>
-            `;
-            document.getElementById("closeThanksPopup").addEventListener("click", () => hidePopup("thanksPopup"));
+        function showThanksPopup(message) {
+            document.getElementById("thanksMessage").innerText = message;
             document.getElementById("thanksPopup").style.display = "block";
             document.getElementById("popupOverlay").style.display = "block";
         }
@@ -909,10 +976,13 @@
                     cache.timestamp = Date.now();
                 }
                 const drawWinnerButton = document.getElementById("drawWinnerButton");
+                const refundParticipantsButton = document.getElementById("refundParticipantsButton");
                 if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
                     drawWinnerButton.classList.remove("hidden");
+                    refundParticipantsButton.classList.remove("hidden");
                 } else {
                     drawWinnerButton.classList.add("hidden");
+                    refundParticipantsButton.classList.add("hidden");
                 }
                 const ticketSection = document.getElementById("ticketSection");
                 const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
@@ -972,9 +1042,9 @@
                 }
                 participantData.sort((a, b) => b.count - a.count);
                 participantsList.innerHTML = "";
-                participantData.forEach(({ address, alias, count }, i) => {
+                participantData.forEach(({ address, alias, count }, index) => {
                     const li = document.createElement("li");
-                    li.setAttribute("data-rank", i + 1);
+                    li.setAttribute("data-rank", index + 1);
                     li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
                     participantsList.appendChild(li);
                 });
