@@ -220,7 +220,7 @@
                 try {
                     console.log("Restaurando conexão via cookie...");
                     web3 = new Web3(window.ethereum);
-                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS");
+                    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
                     const accounts = await window.ethereum.request({ method: "eth_accounts" });
                     if (accounts.length > 0) {
                         userAddress = accounts[0];
