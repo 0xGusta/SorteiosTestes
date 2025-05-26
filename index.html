@@ -545,57 +545,67 @@
             isProcessing = true;
             showProcessingPopup();
             try {
-                const isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
-                if (!isRaffleOpen) {
-                    showErrorPopup("O sorteio está fechado.");
-                    return;
-                }
-                const alias = xUsername;
-                const quantityInput = document.getElementById("ticketQuantity");
-                if (!quantityInput) throw new Error("Campo de quantidade não encontrado.");
-                const quantity = Math.floor(parseInt(quantityInput.value));
-                if (quantity < 1 || !Number.isInteger(quantity)) {
-                    showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
-                    return;
-                }
-                if (!alias || !isValidXUsername(alias)) {
-                    showErrorPopup("Username do X inválido. Insira um username válido.");
-                    return;
-                }
-                const initialTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                const ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
-                const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
-                console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
-                try {
-                    const tx = await contract.getMethods().buyTickets(quantity, alias).send({ from: userAddress, value: totalValue });
-                
-                    const checkFn = async () => {
-                        const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                
-                        return {
-                            success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
-                            message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!")
-                        };
-                    };
-                
-                    await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa sorte na rifa!");
-                
-                } catch (error) {
-                    if (error.code === 4001 || error.message.includes("user rejected")) {
-                        hidePopup("processingPopup");
-                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
-                        return;
-                    }
-                
-                    console.error("Erro crítico ao comprar tickets:", error);
-                    showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
-                
-                } finally {
-                    isProcessing = false;
-                    hidePopup("processingPopup");
-                }
+    const isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
+    if (!isRaffleOpen) {
+        showErrorPopup("O sorteio está fechado.");
+        return;
+    }
 
-            }
+    const alias = xUsername;
+    const quantityInput = document.getElementById("ticketQuantity");
+    if (!quantityInput) throw new Error("Campo de quantidade não encontrado.");
+
+    const quantity = Math.floor(parseInt(quantityInput.value));
+    if (quantity < 1 || !Number.isInteger(quantity)) {
+        showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
+        return;
+    }
+
+    if (!alias || !isValidXUsername(alias)) {
+        showErrorPopup("Username do X inválido. Insira um username válido.");
+        return;
+    }
+
+    const initialTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
+    const ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
+    const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
+
+    console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
+
+    try {
+        const tx = await contract.getMethods().buyTickets(quantity, alias).send({ from: userAddress, value: totalValue });
+
+        const checkFn = async () => {
+            const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
+
+            return {
+                success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
+                message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!")
+            };
+        };
+
+        await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa sorte na rifa!");
+
+    } catch (error) {
+        if (error.code === 4001 || error.message.includes("user rejected")) {
+            hidePopup("processingPopup");
+            showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
+            return;
+        }
+
+        console.error("Erro crítico ao comprar tickets:", error);
+        showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
+
+    } finally {
+        isProcessing = false;
+        hidePopup("processingPopup");
+    }
+
+} catch (error) {
+    console.error("Erro geral no fluxo de compra:", error);
+    showErrorPopup("Erro inesperado. Verifique os dados e tente novamente.");
+}
+
 
             async function handleDrawWinner() {
                 if (isProcessing) {
