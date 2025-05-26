@@ -100,7 +100,7 @@
         <div class="md:w-1/2">
             <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 2 + 7 MON</h2>
             <div class="overflow-hidden rounded-lg">
-                <img id="sorteioImage" src="/images/mv2.jpg" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
+                <img id="sorteioImage" src="https://via.placeholder.com/600x400?text=Monadverse+Chapter+2" alt="Sorteio 0xGus" class="w-full h-auto image-3d">
             </div>
         </div>
         <div class="md:w-1/2">
@@ -374,19 +374,17 @@
             const walletBalanceElement = document.getElementById("walletBalance");
             if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
             document.getElementById("drawWinnerButton").classList.add("hidden");
-            document.getElementById("refundParticipantsButton").classList.add("hidden");
+            document.getElementById("refundParticipantsButton").classList.add("fixed");
             updateBuyButton();
-            cache = { data: null, timestamp: 0, validDuration: 60000 };
-            updateUI();
         }
 
         function normalizeXUsername(username) {
-            return username.startsWith("@") ? username : `@${username}`;
+            return username.startsWith('@') ? username : `@${username}`;
         }
 
         function isValidXUsername(username) {
-            const cleanUsername = username.startsWith("@") ? username.slice(1) : username;
-            return cleanUsername.length > 0 && /^[a-zA-Z0-9_]+$/.test(cleanUsername);
+            const cleanUsername = username.replace(/^@/, '');
+            return cleanUsername.length >= 0 && /^[a-zA-Z0-9_]+$/.test(cleanUsername);
         }
 
         function showUsernamePopup() {
@@ -398,7 +396,7 @@
         function submitTwitterUsername() {
             const username = document.getElementById("twitterUsernameInput").value;
             try {
-                if (!username) throw new Error("Invalid username format");
+                if (!username) throw new Error("Formato de username inválido");
                 if (!isValidXUsername(username)) {
                     showErrorPopup("Insira um username válido do X (ex.: @username, apenas letras, números e sublinhados).");
                     return;
@@ -414,24 +412,25 @@
         }
 
         function truncateAddress(address) {
-            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+            return `${address}.slice(0, 6)}...${address}.slice(-4);
         }
 
         const debouncedUpdateTotalCost = debounce(function updateTotalCost() {
             console.log("Calculando total...");
             const input = document.getElementById("ticketQuantity");
             if (!input) return;
+            }
             const quantityError = document.getElementById("ticketQuantityError");
             let quantity = parseFloat(input.value);
             if (!input.value || quantity < 1 || !Number.isInteger(quantity)) {
                 quantityError.classList.remove("hidden");
                 quantity = 1;
-                input.value = 1;
+                input.value = quantity;
             } else {
                 quantityError.classList.add("hidden");
             }
             const ticketPrice = currentTicketPrice || "200000000000000000"; // Fallback para 0.2 MON
-            const total = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice));
+            const total = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
             const totalCostElement = document.getElementById("totalCost");
             if (totalCostElement) {
                 totalCostElement.innerText = web3.utils.fromWei(total.toString(), "ether");
@@ -452,514 +451,522 @@
                 console.error("Erro ao obter saldo:", error);
                 walletBalanceElement.innerText = "Erro";
             }
-        }
+            }
 
-        async function retryCall(callFn, maxRetries = 3, baseDelay = 1000) {
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    return await callFn();
-                } catch (error) {
-                    console.error(`Tentativa ${attempt} falhou: ${error.message}`);
-                    if (error.message.includes("429") || error.message.includes("request limit reached")) {
-                        if (attempt === maxRetries) {
-                            console.error("Limite de requisições atingido.");
-                            throw new Error("Limite de requisições atingido. Tente novamente mais tarde.");
+            async function retryCall(callFn, maxRetries = 3, baseDelay = 1000) {
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        return await callFn();
+                    } catch (error) {
+                        console.error(`Tentativa ${attempt} falhou ${error}: ${error.message}`);
+                        if (error.message.includes("429") || error.message.toString().includes("request limit reached")) {
+                            if (attempt === maxRetries) {
+                                console.error("Limite de requisições atingido.");
+                                throw new Error("Limite de requisições atingido. Tente novamente mais tarde.");
+                            }
+                            const delay = baseDelay * Math.pow(2, attempt - 1);
+                            console.warn(`Erro 429 ao, tentando novamente após ${delay}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        } else if (error.message.includes("missing revert error")) {
+                            console.warn("Erro ao de contrato de (missing revert data), tentando novamente...");
+                            if (attempt === maxRetries) throw error;
+                            await new Promise(resolve => setTimeout(resolve, baseDelay));
+                        } else {
+                            throw error;
                         }
-                        const delay = baseDelay * Math.pow(2, attempt - 1);
-                        console.warn(`Erro 429, tentando novamente após ${delay}ms...`);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else if (error.message.includes("missing revert data")) {
-                        console.warn("Erro de contrato (missing revert data), tentando novamente...");
-                        if (attempt === maxRetries) throw error;
-                        await new Promise(resolve => setTimeout(resolve, baseDelay));
+                        }
+                    }
+                }
+
+                function updateBuyButton(isRaffleOpen = true) {
+                    const buyButton = document.getElementById("buyTickets");
+                    const raffleStatus = document.getElementById("raffleStatus");
+                    if (!buyButton || !raffleStatus) return;
+
+                    if (!isWalletConnected) {
+                        buyButton.innerText = "Conecte sua wallet primeiro";
+                        buyButton.disabled = true;
+                        buyButton.classList.remove("action-button");
+                        buyButton.classList.add("disabled-button");
+                        buyButton.onclick = null;
+                        raffleStatus.classList.add("hidden");
+                    } else if (!isRaffleOpen) {
+                        buyButton.innerText = "Comprar Tickets para comprar";
+                        buyButton.disabled = true;
+                        buyButton.classList.remove("action-button");
+                        buyButton.classList.add("disabled-button");
+                        buyButton.onclick = null;
+                        raffleStatus.classList.remove("hidden");
                     } else {
-                        throw error;
+                        buyButton.innerText = "Comprar Tickets para comprar";
+                        buyButton.disabled = false;
+                        buyButton.classList.remove("disabled-button");
+                        buyButton.classList.add("action-button");
+                        buyButton.onclick = debounce(handleBuyTickets, 500);
+                        raffleStatus.classList.add("hidden");
                     }
-                }
-            }
-        }
-
-        function updateBuyButton(isRaffleOpen = true) {
-            const buyButton = document.getElementById("buyTickets");
-            const raffleStatus = document.getElementById("raffleStatus");
-            if (!buyButton || !raffleStatus) return;
-            if (!isWalletConnected) {
-                buyButton.innerText = "Conecte sua wallet primeiro";
-                buyButton.disabled = true;
-                buyButton.classList.remove("action-button");
-                buyButton.classList.add("disabled-button");
-                buyButton.onclick = null;
-                raffleStatus.classList.add("hidden");
-            } else if (!isRaffleOpen) {
-                buyButton.innerText = "Comprar Tickets";
-                buyButton.disabled = true;
-                buyButton.classList.remove("action-button");
-                buyButton.classList.add("disabled-button");
-                buyButton.onclick = null;
-                raffleStatus.classList.remove("hidden");
-            } else {
-                buyButton.innerText = "Comprar Tickets";
-                buyButton.disabled = false;
-                buyButton.classList.remove("disabled-button");
-                buyButton.classList.add("action-button");
-                buyButton.onclick = debounce(handleBuyTickets, 500);
-                raffleStatus.classList.add("hidden");
-            }
-        }
-
-        async function monitorTransaction(method, checkFn, successMessage) {
-            const maxAttempts = 10;
-            let attempts = 0;
-            showProcessingPopup();
-            while (attempts < maxAttempts) {
-                try {
-                    const result = await checkFn();
-                    if (result.success) {
-                        hidePopup("processingPopup");
-                        showThanksPopup(result.message || successMessage);
-                        cache = { data: null, timestamp: 0, validDuration: 60000 };
-                        await updateUI();
-                        return true;
                     }
-                } catch (error) {
-                    console.error(`Erro ao monitorar transação (${method}, tentativa ${attempts + 1}):`, error);
-                }
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            }
-            hidePopup("processingPopup");
-            showErrorPopup("Erro ao processar a transação. Nenhuma alteração detectada após 30 segundos.");
-            return false;
-        }
 
-        async function handleBuyTickets() {
-            if (isProcessing) {
-                showProcessingPopup();
-                return;
-            }
-            if (!isWalletConnected) {
-                showErrorPopup("Conecte sua carteira primeiro.");
-                return;
-            }
-            isProcessing = true;
-            showProcessingPopup();
-            try {
-                const isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
-                if (!isRaffleOpen) {
-                    showErrorPopup("O sorteio está fechado.");
-                    return;
-                }
-                const alias = xUsername;
-                const quantityInput = document.getElementById("ticketQuantity");
-                if (!quantityInput) throw new Error("Campo de quantidade não encontrado.");
-                const quantity = Math.floor(parseInt(quantityInput.value));
-                if (quantity < 1 || !Number.isInteger(quantity)) {
-                    showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
-                    return;
-                }
-                if (!alias || !isValidXUsername(alias)) {
-                    showErrorPopup("Username do X inválido. Insira um username válido.");
-                    return;
-                }
-                const initialTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                const ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
-                const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
-                console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
-                try {
-                    const tx = await contract.getMethods().buyTickets(quantity, alias).send({
-                        from: userAddress,
-                        value: totalValue
-                    });
-                    const checkFn = async () => {
-                        const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                        return {
-                            success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
-                            message: "Obrigado por ajudar a comunidade Monad. Boa Sorte!"
-                        };
-                    };
-                    await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa Sorte!");
-                } catch (error) {
-                    if (error.code === 4001 || error.message.includes("user rejected")) {
-                        hidePopup("processingPopup");
-                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
-                        return;
-                    }
-                    throw error;
-                }
-            } catch (error) {
-                console.error("Erro crítico ao comprar tickets:", error);
-                showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
-            }
-        }
-
-        async function handleDrawWinner() {
-            if (isProcessing) {
-                showProcessingPopup();
-                return;
-            }
-            if (!isWalletConnected) {
-                showErrorPopup("Conecte sua carteira primeiro.");
-                return;
-            }
-            isProcessing = true;
-            showProcessingPopup();
-            try {
-                const owner = await retryCall(() => contract.getMethods().owner().call());
-                if (userAddress.toLowerCase() !== owner.toLowerCase()) {
-                    showErrorPopup("Apenas o dono do contrato pode sortear o ganhador.");
-                    return;
-                }
-                const initialPastWinners = await retryCall(() => contract.getMethods().getPastWinners().call());
-                console.log("Enviando transação para sortear ganhador...");
-                try {
-                    const tx = await contract.getMethods().drawWinner().send({ from: userAddress });
-                    const checkFn = async () => {
-                        const currentPastWinners = await retryCall(() => contract.getMethods().getPastWinners().call());
-                        if (currentPastWinners.length > initialPastWinners.length) {
-                            const winner = currentPastWinners[currentPastWinners.length - 1];
-                            const winnerTwitter = await retryCall(() => contract.getMethods().getAlias(winner).call());
-                            return {
-                                success: true,
-                                message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter || 'N/A'})`
-                            };
-                        }
-                        return { success: false };
-                    };
-                    await monitorTransaction("drawWinner", checkFn, "Sorteio realizado com sucesso!");
-                } catch (error) {
-                    if (error.code === 4001 || error.message.includes("user rejected")) {
-                        hidePopup("processingPopup");
-                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
-                        return;
-                    }
-                    throw error;
-                }
-            } catch (error) {
-                console.error("Erro crítico ao sortear ganhador:", error);
-                showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
-            }
-        }
-
-        async function handleRefundParticipants() {
-            if (isProcessing) {
-                showProcessingPopup();
-                return;
-            }
-            if (!isWalletConnected) {
-                showErrorPopup("Conecte sua carteira primeiro.");
-                return;
-            }
-            isProcessing = true;
-            showProcessingPopup();
-            try {
-                const owner = await retryCall(() => contract.getMethods().owner().call());
-                if (userAddress.toLowerCase() !== owner.toLowerCase()) {
-                    showErrorPopup("Apenas o dono do contrato pode realizar reembolsos.");
-                    return;
-                }
-                const initialBalance = await retryCall(() => contract.getMethods().getContractBalance().call());
-                console.log("Executando reembolso...");
-                try {
-                    const tx = await contract.getMethods().refundParticipants().send({ from: userAddress });
-                    const checkFn = async () => {
-                        const currentBalance = await retryCall(() => contract.getMethods().getContractBalance().call());
-                        return {
-                            success: web3.utils.toBN(currentBalance).isZero(),
-                            message: "Reembolsos realizados com sucesso!"
-                        };
-                    };
-                    await monitorTransaction("refundParticipants", checkFn, "Reembolsos realizados com sucesso!");
-                } catch (error) {
-                    if (error.code === 4001 || error.message.includes("user rejected")) {
-                        hidePopup("processingPopup");
-                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
-                        return;
-                    }
-                    throw error;
-                }
-            } catch (error) {
-                console.error("Erro crítico ao reembolsar participantes:", error);
-                showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
-            }
-        }
-
-        function setupMenu() {
-            let isMouseOverButton = false;
-            let isMouseOverMenu = false;
-            const walletButton = document.getElementById("walletButton");
-            const walletMenu = document.getElementById("walletMenu");
-            if (!walletButton || !walletMenu) return;
-            walletButton.addEventListener("mouseenter", () => {
-                isMouseOverButton = true;
-                if (isWalletConnected) {
-                    walletMenu.classList.remove("hidden");
-                    console.log("Menu aberto (mouseenter no botão)");
-                }
-            });
-            walletButton.addEventListener("mouseleave", () => {
-                isMouseOverButton = false;
-                console.log("Mouse saiu do botão");
-            });
-            walletMenu.addEventListener("mouseenter", () => {
-                isMouseOverMenu = true;
-                console.log("Mouse sobre o menu");
-            });
-            walletMenu.addEventListener("mouseleave", () => {
-                isMouseOverMenu = false;
-                console.log("Mouse saiu do menu");
-            });
-            document.addEventListener("click", (e) => {
-                if (!isMouseOverButton && !isMouseOverMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
-                    walletMenu.classList.add("hidden");
-                    console.log("Menu fechado (click fora)");
-                }
-            });
-        }
-
-        function showErrorPopup(message) {
-            console.log("Exibindo erro:", message);
-            const errorMessage = document.getElementById("errorMessage");
-            const errorPopup = document.getElementById("errorPopup");
-            const popupOverlay = document.getElementById("popupOverlay");
-            if (errorMessage && errorPopup && popupOverlay) {
-                errorMessage.innerText = message;
-                errorPopup.style.display = "block";
-                popupOverlay.style.display = "block";
-            }
-        }
-
-        function showProcessingPopup() {
-            const processingPopup = document.getElementById("processingPopup");
-            const popupOverlay = document.getElementById("popupOverlay");
-            if (processingPopup && popupOverlay) {
-                processingPopup.style.display = "block";
-                popupOverlay.style.display = "block";
-            }
-        }
-
-        function showThanksPopup(message) {
-            const thanksMessage = document.getElementById("thanksMessage");
-            const thanksPopup = document.getElementById("thanksPopup");
-            const popupOverlay = document.getElementById("popupOverlay");
-            if (thanksMessage && thanksPopup && popupOverlay) {
-                thanksMessage.innerText = message;
-                thanksPopup.style.display = "block";
-                popupOverlay.style.display = "block";
-            }
-        }
-
-        function hidePopup(popupId) {
-            const popup = document.getElementById(popupId);
-            if (popup) popup.style.display = "none";
-            const popups = [
-                "errorPopup",
-                "processingPopup",
-                "thanksPopup",
-                "usernamePopup",
-                "metamaskMobilePopup",
-                "cookieConsent"
-            ];
-            const popupOverlay = document.getElementById("popupOverlay");
-            if (popupOverlay && !popups.some(p => document.getElementById(p)?.style.display === "block")) {
-                popupOverlay.style.display = "none";
-            }
-        }
-
-        function acceptCookies() {
-            acceptedCookies = true;
-            Cookies.set("acceptedCookies", "true", { expires: 365 });
-            hidePopup("cookieConsent");
-        }
-
-        function setupImage3DEffect() {
-            const image = document.getElementById("sorteioImage");
-            if (!image) return;
-            const imageRect = image.getBoundingClientRect();
-            image.addEventListener("mousemove", (e) => {
-                const x = e.clientX - imageRect.left;
-                const y = e.clientY - imageRect.top;
-                const centerX = imageRect.width / 2;
-                const centerY = imageRect.height / 2;
-                const maxTilt = 20;
-                const tiltX = ((centerY - y) / centerY) * maxTilt;
-                const tiltY = ((x - centerX) / centerX) * maxTilt;
-                image.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-            });
-            image.addEventListener("mouseleave", () => {
-                image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
-            });
-        }
-
-        async function updateUI() {
-            try {
-                let ticketPrice = "0", ticketCount = "0", participants = [], isRaffleOpen = false, lastWinner = null, lastWinnerTwitter = null, owner = null;
-                let currentQuantity = 1;
-                const ticketQuantityInput = document.getElementById("ticketQuantity");
-                if (ticketQuantityInput && ticketQuantityInput.value) {
-                    currentQuantity = parseInt(ticketQuantityInput.value) || 1;
-                }
-                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
-                    ({ ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner } = cache.data);
-                } else {
-                    try {
-                        console.log("Lendo ticketPrice...");
-                        ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
-                        currentTicketPrice = ticketPrice;
-                    } catch (error) {
-                        console.error("Erro ao ler ticketPrice:", error);
-                    }
-                    try {
-                        console.log("Lendo participantes...");
-                        participants = await retryCall(() => contract.getMethods().getParticipants().call());
-                    } catch (error) {
-                        console.error("Erro ao ler participantes:", error);
-                    }
-                    try {
-                        console.log("Lendo status do sorteio...");
-                        isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
-                    } catch (error) {
-                        console.error("Erro ao ler isRaffleOpen:", error);
-                    }
-                    try {
-                        console.log("Lendo último ganhador...");
-                        const pastWinners = await retryCall(() => contract.getMethods().getPastWinners().call());
-                        if (pastWinners && pastWinners.length > 0) {
-                            lastWinner = pastWinners[pastWinners.length - 1];
-                            lastWinnerTwitter = await retryCall(() => contract.getMethods().getAlias(lastWinner).call());
-                        }
-                    } catch (error) {
-                        console.error("Erro ao ler pastWinners ou getAlias:", error);
-                    }
-                    try {
-                        console.log("Lendo owner...");
-                        owner = await retryCall(() => contract.getMethods().owner().call());
-                    } catch (error) {
-                        console.error("Erro ao ler owner:", error);
-                    }
-                    if (isWalletConnected && userAddress) {
+                async function monitorTransaction(method, checkFn, successCallback) {
+                    const maxAttempts = 10;
+                    let attempts = 0;
+                    showProcessingPopup();
+                    while (attemptsCallback < maxAttempts) {
                         try {
-                            console.log("Lendo ticketCount para:", userAddress);
-                            ticketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                        } catch (error) {
-                            console.error("Erro ao ler ticketCount:", error);
+                            const result = await checkFn();
+                            if (result.success) {
+                                hidePopup("processingPopup");
+                                showThanksPopup(result.message || successCallback);
+                                cache.data = { null, timestamp: 0, data: null };
+                                await updateUI();
+                                return true;
+                            }
+                            } catch (error) {
+                                console.error(`Erro ao monitorar transação de (${method}, tentativa ${attempts} + 1)}): ${error}`, error);
+                            }
+                            attempts = attempts++;
+                            await new Promise(resolve => setTimeout(resolve, 3000));
                         }
+                        hidePopup("processingPopup");
+                        showErrorPopup("Erro ao processar a transação. Nenhuma alteração detectada após 30 segundos.");
+                        return false;
                     }
-                    cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner };
-                    cache.timestamp = Date.now();
-                }
-                const drawWinnerButton = document.getElementById("drawWinnerButton");
-                const refundParticipantsButton = document.getElementById("refundParticipantsButton");
-                if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
-                    if (drawWinnerButton) drawWinnerButton.classList.remove("hidden");
-                    if (refundParticipantsButton) refundParticipantsButton.classList.remove("hidden");
-                } else {
-                    if (drawWinnerButton) drawWinnerButton.classList.add("hidden");
-                    if (refundParticipantsButton) refundParticipantsButton.classList.add("hidden");
-                }
-                const ticketSection = document.getElementById("ticketSection");
-                if (!ticketSection) return;
-                const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
-                if (!isRaffleOpen && lastWinner) {
-                    ticketSection.innerHTML = `
-                        <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || 'N/A'})</p>
-                    `;
-                } else if (!isRaffleOpen) {
-                    ticketSection.innerHTML = `
-                        <p class="text-base"><strong>Nenhum ganhador ainda.</strong></p>
-                    `;
-                } else if (!isCurrentlyBuyForm) {
-                    ticketSection.innerHTML = BUY_TICKETS_FORM;
-                    const newQuantityInput = document.getElementById("ticketQuantity");
-                    if (newQuantityInput) {
-                        newQuantityInput.value = currentQuantity;
-                        newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
-                    }
-                    const ticketPriceElement = document.getElementById("ticketPrice");
-                    const participantCountElement = document.getElementById("participantCount");
-                    const ticketCountElement = document.getElementById("ticketCount");
-                    if (ticketPriceElement) {
-                        ticketPriceElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    }
-                    if (participantCountElement) {
-                        participantCountElement.innerText = participants.length;
-                    }
-                    if (ticketCountElement) {
-                        ticketCountElement.innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
-                    }
-                    const buyTicketsButton = document.getElementById("buyTickets");
-                    if (buyTicketsButton) {
-                        buyTicketsButton.addEventListener("click", debounce(handleBuyTickets, 500));
-                    }
-                } else {
-                    const ticketPriceElement = document.getElementById("ticketPrice");
-                    const participantCountElement = document.getElementById("participantCount");
-                    const ticketCountElement = document.getElementById("ticketCount");
-                    if (ticketPriceElement) {
-                        ticketPriceElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    }
-                    if (participantCountElement) {
-                        participantCountElement.innerText = participants.length;
-                    }
-                    if (ticketCountElement) {
-                        ticketCountElement.innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
-                    }
-                }
-                if (isWalletConnected) {
-                    await updateWalletBalance();
-                    debouncedUpdateTotalCost();
-                    updateBuyButton(isRaffleOpen);
-                } else {
-                    const walletBalanceElement = document.getElementById("walletBalance");
-                    const totalCostElement = document.getElementById("totalCost");
-                    if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
-                    if (totalCostElement) totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                    updateBuyButton(isRaffleOpen);
-                }
-                const participantsList = document.getElementById("participantsList");
-                const participantsSection = document.getElementById("participantsSection");
-                if (!participantsList || !participantsSection) return;
-                participantsList.innerHTML = "";
-                const participantData = [];
-                const uniqueParticipants = [...new Set(participants)];
-                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
-                    const participant = uniqueParticipants[i];
-                    if (!web3.utils.isAddress(participant)) continue;
-                    let alias = "Desconhecido";
-                    let count = 0;
-                    try {
-                        alias = await retryCall(() => contract.getMethods().getAlias(participant).call());
-                        count = await retryCall(() => contract.getMethods().getTicketCount(participant).call());
-                    } catch (error) {
-                        console.error(`Erro ao obter dados do participante ${participant}:`, error);
-                    }
-                    participantData.push({ address: participant, alias, count });
-                }
-                participantData.sort((a, b) => b.count - a.count);
-                participantData.forEach(({ address, alias, count }, index) => {
-                    const li = document.createElement("li");
-                    li.setAttribute("data-rank", index + 1);
-                    li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
-                    participantsList.appendChild(li);
-                });
-                if (participantsSection) {
-                    participantsSection.style.display = participantData.length > 0 ? "block" : "none";
-                }
-            } catch (error) {
-                console.error("Erro ao atualizar UI:", error);
-                showErrorPopup("Erro ao atualizar a interface. Tente novamente.");
-            }
-        }
+                    async function handleBuyTickets) {
+                        if (isProcessing) {
+                            showProcessingPopup();
+                            return;
+                        }
+                        if (!isWalletConnected)) {
+                            showErrorPopup("Conecte sua carteira primeiro.");
+                            return;
+                        }
+                        isProcessing = true;
+                        showProcessingPopup();
 
-        window.onload = init;
-    </script>
-</body>
-</html>
+                        try {
+                            const isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call());
+                            if (!isRaffleOpen)) {
+                                showErrorPopup("O sorteio está fechado.");
+                                return;
+                            }
+                            const alias = xUsername;
+                            const quantityInput = document.getElementById("ticketQuantity");
+                            if (!quantityInput) throw new Error("Campo de preenchimento de quantidade não encontrado.");
+                            const quantity = Math.floor(parseInt(quantityInput.value));
+                            if (quantityInput.value || quantity < 1 || !Number.isInteger(quantity)) {
+                                showErrorPopup("Quantidade de erro tickets inválida. Insira um número inteiro maior ou igual a 1.");
+                                return;
+                            }
+                            if (!alias || !isValidXUsername()) {
+                                showErrorPopup("Username do X @ inválido. Insira um username valido.");
+                                return;
+                            }
+                            const initialTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
+                            const ticketPrice = await retryCall(() => contract.getMethods().getTicketPrice().call());
+                            const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
+                            console.log("Enviando transação de compra de...", { userAddress, quantity, totalValue, alias });
+                            try {
+                                const tx = await contract.getMethods().buyTickets(quantity, alias).send({
+                                    from: userAddress,
+                                    from: totalValue
+                                    });
+                                const checkFn = async () => {
+                                    const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
+                                    return {
+                                        success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
+                                        message: "Obrigado por ajudar a comunidade a do Monad! Boa Sorte!"
+                                    };
+                                };
+                                await monitorTransaction("buyTickets", "Buy tickets", checkFn, buyTickets);
+                            } catch (error) {
+                                if (error.code === 4001 || error.message.includes("user rejected")) {
+                                    hidePopup("processingPopup");
+                                    showErrorPopup("Transação rejeitada pelo no MetaMask. Autorize a transação para continuar.");
+                                    return;
+                                }
+                                throw error;
+                            }
+                            } catch (error) {
+                                console.error("Erro crítico ao ao comprar tickets:", error);
+                                showErrorPopup("Erro ao iniciar o a compra de tickets. Tente novamente.");
+                            } finally {
+                                isProcessing = false;
+                                hidePopup("processingPopup");
+                            }
+                        }
+
+                        async function handleDrawWinner() {
+                            if (isProcessing) {
+                                showProcessingPopup();
+                                return;
+                            }
+                            if (!isWalletConnected)) {
+                                showErrorPopup("Conectar sua carteira primeiro.");
+                                return;
+                            }
+                            isProcessing = true;
+                            showProcessingPopup();
+                            try {
+                                const owner = await retryCall(() => contract.getMethods().owner()).call();
+                                if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+                                    showErrorPopup("Apenas o proprietário dono do contrato pode sortear o ganhador.");
+                                    return;
+                                }
+                                const initialPastWinners = await retryCall(() => contract.getMethods().getPastWinners()).call();
+                                console.log("Enviando transação para sortear o ganhador...");
+                                try {
+                                    const tx = await contract.getMethods().drawWinner()).send({ from: userAddress });
+                                    const checkFn = async () => {
+                                        const currentPastWinners = await retryCall(() => contract.getMethods().getPastWinners()).call();
+                                        if (currentPastWinners.length > initialPastWinners.length) {
+                                            const winner = currentPastWinners[currentPastWinners.length - 1];
+                                            const winnerTwitter = await retryCall(() => contract.getMethods().getAlias()).call();
+                                            return {
+                                                success: true,
+                                                message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter} || 'N/A'})`
+                                                };
+                                            }
+                                            return false;
+                                        };
+                                        await monitorTransaction("drawWinner", "Draw winner", checkFn, "Winner drawn successfully!");
+                                    } catch (error) {
+                                        if (error.code === 4001 || error.message.includes("user rejected")) {
+                                            hidePopup("processingPopup");
+                                            showErrorPopup("Transação rejeitada pelo no MetaMask. Autorize a transação para continuar.");
+                                            return;
+                                        }
+                                        throw error;
+                                    }
+                                } catch (error) {
+                                    console.error("Erro crítico ao realizar o sorteio do ganhador:", error);
+                                    showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
+                                } finally {
+                                    isProcessing = false;
+                                    hidePopup("processingPopup");
+                                }
+                            }
+
+                            async function handleRefundParticipants() {
+                                if (isProcessing) {
+                                    showProcessingPopup();
+                                    return;
+                                }
+                                if (!isWalletConnected)) {
+                                    showErrorPopup("Conectar sua carteira primeiro.");
+                                    return;
+                                }
+                                isProcessing = true;
+                                showProcessingPopup();
+                                try {
+                                    const owner = await retryCall(() => contract.getMethods().owner()).call();
+                                    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+                                        showErrorPopup("Apenas o proprietário dono do contrato pode realizar reembolsos.");
+                                        return;
+                                    }
+                                    const initialBalance = await retryCall(() => contract.getMethods().getContractBalance()).call();
+                                    console.log("Executando reembolsos...");
+                                    try {
+                                        const tx = await contract.getMethods().refundParticipants()).send({ from: userAddress });
+                                        const checkFn = async () => {
+                                            const currentBalance = await retryCall(() => contract.getMethods().getContractBalance()).call();
+                                            return {
+                                                success: web3.utils.toBN(currentBalance).isZero(),
+                                                successes: true,
+                                                message: "Reembolsos realizados com sucesso!"
+                                            };
+                                        } catch (error) {
+                                            if (error.code === 4001 || error.message.includes("user rejected")) {
+                                                hidePopup("processingPopup");
+                                                showErrorPopup("Transação rejeitada por pelo MetaMask. Autorize a transação para continuar.");
+                                                return;
+                                            }
+                                            throw error;
+                                        }
+                                        } catch (error) {
+                                            console.error("Erro crítico ao realizar reembolsos:", error);
+                                            showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
+                                        } finally {
+                                            isProcessing = false;
+                                            hidePopup("processingPopup");
+                                        }
+                                    }
+
+                            function setupMenu() {
+                                        const walletButton = document.getElementById("walletButton");
+                                        const walletMenu = document.querySelector("#walletMenu");
+                                        let isMouseOverButton = false;
+                                        let isMouseOverMenu = false;
+
+                                        if (!walletButton || !walletMenu) return;
+
+                                        walletButton.addEventListener("mouseenter", () => {
+                                            isMouseOverButton = true;
+                                            if (isWalletConnected) {
+                                                walletMenu.classList.remove("hidden");
+                                                console.log("Menu aberto com mouseenter no botão");
+                                            }
+                                        });
+
+                                        walletButton.addEventListener("mouseleave", () => {
+                                            isMouseOverButton = false;
+                                            console.log("Mouse saiu do botão");
+                                        });
+
+                                        walletMenu.addEventListener("mouseenter", () => {
+                                            isMouseOverMenu = true;
+                                            console.log("Mouse sobre o menu");
+                                        });
+
+                                        walletMenu.addEventListener("mouseleave", () => {
+                                            isMouseOverMenu = false;
+                                            console.log("Mouse saiu do menu");
+                                        });
+
+                                        document.addEventListener("click", (e) => {
+                                            if (!isMouseOverButton && !isMouseOverMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
+                                                walletMenu.classList.add("hidden");
+                                                console.log("Menu fechado com clique fora");
+                                            }
+                                        });
+                                    }
+
+                                    function showErrorPopup(message) {
+                                        console.log("Exibindo erro:", message);
+                                        const errorMessage = document.getElementById("errorMessage");
+                                        const errorPopup = document.getElementById("errorPopup");
+                                        const popupOverlay = document.getElementById("popupOverlay");
+                                        if (errorMessage && errorPopup && popupOverlay) {
+                                            errorMessage.innerText = message;
+                                            errorPopup.style.display = "block";
+                                            popupOverlay.style.display = "block";
+                                        }
+                                    }
+
+                                    function showProcessingPopup() {
+                                        const processingPopup = document.getElementById("processingPopup");
+                                        const popupOverlay = document.getElementById("popupOverlay");
+                                        if (processingPopup && popupOverlay) {
+                                            processingPopup.style.display = "block";
+                                            popupOverlay.style.display = "block";
+                                        }
+                                    }
+
+                                    function showThanksPopup(message) {
+                                        const thanksMessage = document.getElementById("thanksMessage");
+                                        const thanksPopup = document.getElementById("thanksPopup");
+                                        const popupOverlay = document.getElementById("popupOverlay");
+                                        if (thanksMessage && thanksPopup && popupOverlay) {
+                                            thanksMessage.innerText = message;
+                                            thanksPopup.style.display = "block";
+                                            popupOverlay.style.display = "block";
+                                        }
+                                    }
+
+                                    function hidePopup(popupId) {
+                                        const popup = document.getElementById(popupId);
+                                        if (popup) popup.style.display = "none";
+                                        const popups = [
+                                            "errorPopup",
+                                            "processingPopup",
+                                            "thanksPopup",
+                                            "usernamePopup",
+                                            "metamaskMobilePopup",
+                                            "cookieConsent"
+                                        ];
+                                        const popupOverlay = document.getElementById("popupOverlay");
+                                        if (popupOverlay && !popups.some(p => document.getElementById(p)?.style.display === "block")) {
+                                            popupOverlay.style.display = "none";
+                                        }
+                                    }
+
+                                    function acceptCookies() {
+                                        acceptedCookies = true;
+                                        Cookies.set("acceptedCookies", "true", { expires: 365 });
+                                        hidePopup("cookieConsent");
+                                    }
+
+                                    function setupImage3DEffect() {
+                                        const image = document.getElementById("sorteioImage");
+                                        if (!image) return;
+                                        const imageRect = image.getBoundingClientRect();
+                                        image.addEventListener("mousemove", (event) => {
+                                            const x = event.clientX - imageRect.left;
+                                            const y = event.clientY - imageRect.top;
+                                            const centerX = imageRect.width / 2;
+                                            const centerY = imageRect.height / 2;
+
+                                            const maxTilt = 20;
+                                            const tiltX = ((centerY - y) / centerY) * maxTilt;
+                                            const tiltY = ((x - centerX) / centerX) * maxTilt;
+
+                                            image.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+                                        });
+                                        image.addEventListener("mouseleave", () => {
+                                            image.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
+                                        });
+                                    }
+
+                                    async function updateUI() {
+                                        try {
+                                            let ticketPrice = "0", ticketCount = "0", participants = [], isRaffleOpen = true, lastWinner = null, lastWinnerTwitter = null, owner = null;
+                                        let currentQuantity = 1;
+                                        const ticketQuantityInput = document.getElementById("ticketQuantity");
+                                        if (ticketQuantityInput && ticketQuantityInput.value) {
+                                            currentQuantity = parseInt(ticketQuantityInput.value) || 1;
+                                        }
+                                        if (cache.data && Date.now() - cacheTimestamp < cache.validDuration && cache.data) {
+                                            ({ ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner } = cache.data);
+                                        } else {
+                                            try {
+                                                console.log("Lendo preço do ticket...");
+                                                ticketPrice = await retryCall(() => contract.getMethods().ticketPrice()).call();
+                                                currentTicketPrice = ticketPrice;
+                                            } catch (error) {
+                                                console.error("Erro ao ler ticketPrice:", error);
+                                            }
+                                            try {
+                                                console.log("Lendo participantes...");
+                                                participants = await retryCall(() => contract.getMethods().getParticipants()).call();
+                                            } catch (error) {
+                                                console.error("Erro ao ler participantes:", error);
+                                            }
+                                            try {
+                                                console.log("Lendo status do sorteio...");
+                                                isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen()).call();
+                                            } catch (error) {
+                                                console.error("Erro ao ler isRaffleOpen:", error);
+                                            }
+                                            try {
+                                                console.log("Lendo último ganhador...");
+                                                const pastWinners = await retryCall(() => contract.getMethods().getPastWinners()).call();
+                                                if (pastWinners && pastWinners.length > 0) {
+                                                    lastWinner = pastWinners[pastWinners.length - 1];
+                                                    lastWinnerTwitter = await retryCall(() => contract.getMethods().getAlias()).call();
+                                                }
+                                            } catch (err) {
+                                                console.error("Erro ao ler pastWinners ou getAlias:", error);
+                                            }
+                                            try {
+                                                console.log("Lendo proprietário...");
+                                                owner = await retryCall(() => contract.getMethods().owner()).call();
+                                            } catch (error) {
+                                                console.error("Erro ao ler owner:", error);
+                                            }
+                                            if (isWalletConnected && userAddress) {
+                                                try {
+                                                    console.log("Lendo ticketCount para ", userAddress: ${userAddress});
+                                                    ticketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress)).call();
+                                                } catch (error) {
+                                                    console.error("Erro ao ler ticketCount:", error);
+                                                }
+                                            }
+                                            cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner };
+                                            cache.timestamp = Date.now();
+                                        }
+                                        const drawWinnerButton = document.getElementById("drawWinnerButton");
+                                        const refundParticipantsButton = document.getElementById("refundParticipantsButton");
+                                        if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
+                                            if (drawWinnerButton) drawWinnerButton.classList.remove("hidden");
+                                            if (refundParticipantsButton) refundParticipantsButton.classList.remove("hidden");
+                                        } else {
+                                            if (drawWinnerButton) drawWinnerButton.classList.add("hidden");
+                                            if (refundParticipantsButton) refundParticipantsButton.classList.add("hidden");
+                                        }
+                                        const ticketSection = document.getElementById("ticketSection");
+                                        if (!ticketSection) return;
+                                        const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
+                                        if (!isRaffleOpen && lastWinner) {
+                                            ticketSection.innerHTML = `
+                                                <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter} || 'N/A'})</p>
+                                            `;
+                                        } else if (!isRaffleOpen) {
+                                            ticketSection.innerHTML = `
+                                                <p class="text-base"><strong>Nenhum ganhador ainda.</strong></p>
+                                            `;
+                                        } else if (!isCurrentlyBuyForm) {
+                                            ticketSection.innerHTML = BUY_TICKETS_FORM;
+                                            const newQuantityInput = document.getElementById("ticketQuantity");
+                                            if (newQuantityInput) {
+                                                newQuantityInput.value = currentQuantity;
+                                                newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
+                                            }
+                                            const ticketPriceElement = document.getElementById("ticketPrice");
+                                            const participantCountElement = document.getElementById("participantCount");
+                                            const ticketCountElement = document.getElementById("ticketCount");
+                                            if (ticketPriceElement) {
+                                                ticketPriceElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                                            }
+                                            if (participantCountElement) {
+                                                participantCountElement.innerText = participants.length;
+                                            }
+                                            if (ticketCountElement) {
+                                                ticketCountElement.innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                                            }
+                                            const buyTicketsButton = document.getElementById("buyTickets");
+                                            if (buyTicketsButton) {
+                                                buyTicketsButton.addEventListener("click", debounce(handleBuyTickets, 500));
+                                            }
+                                        } else {
+                                            const ticketPriceElement = document.getElementById("ticketPrice");
+                                            const participantCountElement = document.getElementById("participantCount");
+                                            const ticketCountElement = document.getElementById("ticketCount");
+                                            if (ticketPriceElement) {
+                                                ticketPriceElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                                            }
+                                            if (participantCountElement) {
+                                                participantCountElement.innerText = participants.length;
+                                            }
+                                            if (ticketCountElement) {
+                                                ticketCountElement.innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                                            }
+                                        }
+                                        if (isWalletConnected) {
+                                            await updateWalletBalance();
+                                            debouncedUpdateTotalCost();
+                                            updateBuyButton(isRaffleOpen);
+                                        } else {
+                                            const walletBalanceElement = document.getElementById("walletBalance");
+                                            const totalCostElement = document.getElementById("totalCost");
+                                            if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
+                                            if (totalCostElement) totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                                            updateBuyButton(isRaffleOpen);
+                                        }
+                                        const participantsList = document.getElementById("participantsList");
+                                        const participantsSection = document.getElementById("participantsSection");
+                                        if (!participantsList || !participantsSection) return;
+                                        participantsList.innerHTML = "";
+                                        const participantData = [];
+                                        const uniqueParticipants = [...new Set(participants)];
+                                        for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+                                            const participant = uniqueParticipants[i];
+                                            if (!web3.utils.isAddress(participant)) continue;
+                                            let alias = "Desconhecido";
+                                            let count = 0;
+                                            try {
+                                                alias = await retryCall(() => contract.getMethods().getAlias(participant)).call();
+                                                count = await retryCall(() => contract.getMethods().getTicketCount(participant)).call();
+                                            } catch (error) {
+                                                console.error(`Erro ao obter dados do participante ${participant}:`, error);
+                                            }
+                                            participantData.push({ address: participant, alias, count });
+                                        }
+                                        participantData.sort((a, b) => b.count - a.count);
+                                        participantData.forEach(({ address, alias, count }, index) => {
+                                            const li = document.createElement("li");
+                                            li.setAttribute("data-rank", index + 1);
+                                            li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
+                                            participantsList.appendChild(li);
+                                        });
+                                        if (participantsSection) {
+                                            participantsSection.style.display = participantData.length > 0 ? "block" : "none";
+                                        }
+                                    } catch (error) {
+                                        console.error("Erro ao atualizar a interface:", error);
+                                        showErrorPopup("Erro ao atualizar a interface. Tente novamente.");
+                                    }
+                                }
+
+                                window.onload = init;
+                            </script>
+                        </body>
+                    </html>
