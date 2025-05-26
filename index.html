@@ -732,7 +732,7 @@
                 }
             } catch (error) {
                 console.error("Erro crítico ao comprar tickets:", error);
-                showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
+                showErrorPopup("Erro ao comprar tickets ou o usuário rejeitou a trasação.");
             } finally {
                 isProcessing = false;
                 hidePopup("processingPopup");
