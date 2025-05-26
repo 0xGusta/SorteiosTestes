@@ -568,31 +568,33 @@
                 console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
                 try {
                     const tx = await contract.getMethods().buyTickets(quantity, alias).send({ from: userAddress, value: totalValue });
+                
                     const checkFn = async () => {
                         const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
-                        
-                            return {
-                                    success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
-                                    message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!")
-                            };
-
+                
+                        return {
+                            success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
+                            message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!")
                         };
                     };
+                
                     await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa sorte na rifa!");
+                
                 } catch (error) {
                     if (error.code === 4001 || error.message.includes("user rejected")) {
                         hidePopup("processingPopup");
                         showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
                         return;
                     }
-                    throw error;
-                } catch (error) {
+                
                     console.error("Erro crítico ao comprar tickets:", error);
                     showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
+                
                 } finally {
                     isProcessing = false;
                     hidePopup("processingPopup");
                 }
+
             }
 
             async function handleDrawWinner() {
