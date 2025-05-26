@@ -403,7 +403,7 @@
                     showErrorPopup("Insira um username válido do X (exemplo: @username, apenas letras, números e sublinhados).");
                     return;
                 }
-                xUsername = normalizeXUsername(username);
+                xUsername = normalizeXUsername(username));
                 Cookies.set("xUsername", xUsername, { expires: 7 });
                 document.getElementById("xUsernameDisplay").innerText = xUsername;
                 hidePopup("usernamePopup");
