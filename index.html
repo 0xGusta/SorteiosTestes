@@ -571,9 +571,11 @@
                     const checkFn = async () => {
                         const currentTicketCount = await retryCall(() => contract.getMethods().getTicketCount(userAddress).call());
                         return {
-                            success: parseInt(currentTicketCount);
-                            > parseInt(initialTicketCount);
-                            message: ("Obrigado por ajudar a comunidade Monad. Boa Sorte!");
+                            return {
+                                    success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
+                                    message: message("Obrigado por ajudar a comunidade Monad. Boa Sorte!")
+                            };
+
                         };
                     };
                     await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa sorte na rifa!");
