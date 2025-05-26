@@ -37,7 +37,7 @@
             color: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
             z-index: 1000;
             text-align: center;
         }
@@ -48,7 +48,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0,0,0,0.7);
             z-index: 999;
         }
         #cookieConsent {
@@ -66,7 +66,7 @@
             border: 1px solid #374151;
             border-radius: 8px;
             padding: 16px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         #participantsList {
             list-style: none;
@@ -79,7 +79,7 @@
             margin-bottom: 8px;
             background: linear-gradient(to right, #374151, #2d3748);
             border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
             transition: transform 0.2s;
         }
         #participantsList li:hover {
@@ -556,7 +556,7 @@
             return `${address.slice(0, 6)}...${address.slice(-4)}`;
         }
 
-        async function updateTotalCost() {
+        const debouncedUpdateTotalCost = debounce(async function updateTotalCost() {
             const input = document.getElementById("ticketQuantity");
             if (!input) return;
             const quantityError = document.getElementById("ticketQuantityError");
@@ -569,25 +569,18 @@
                 quantityError.classList.add("hidden");
             }
             let ticketPrice;
-            if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
-                ticketPrice = cache.data.ticketPrice;
-            } else {
-                try {
-                    ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
-                    cache.data = cache.data || {};
-                    cache.data.ticketPrice = ticketPrice;
-                    cache.timestamp = Date.now();
-                } catch (error) {
-                    console.error("Erro ao obter ticketPrice:", error);
-                    ticketPrice = "0";
-                }
+            try {
+                ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+            } catch (error) {
+                console.error("Erro ao obter ticketPrice:", error);
+                ticketPrice = "0";
             }
             const total = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice));
             const totalCostElement = document.getElementById("totalCost");
             if (totalCostElement) {
-                totalCostElement.innerText = web3.utils.fromWei(total, "ether");
+                totalCostElement.innerText = web3.utils.fromWei(total.toString(), "ether");
             }
-        }
+        }, 300);
 
         async function updateWalletBalance() {
             const walletBalanceElement = document.getElementById("walletBalance");
@@ -658,7 +651,7 @@
             }
         }
 
-        async function monitorTransaction(method, initialState, checkFn, successMessage) {
+        async function monitorTransaction(method, checkFn, successMessage) {
             const maxAttempts = 10; // 30 seconds / 3 seconds per attempt
             let attempts = 0;
             showProcessingPopup();
@@ -693,6 +686,7 @@
                 return;
             }
             isProcessing = true;
+            showProcessingPopup();
             try {
                 const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
                 if (!isRaffleOpen) {
@@ -715,28 +709,30 @@
                 const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
                 const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
                 console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
-                const txPromise = contract.methods.buyTickets(quantity, alias).send({
-                    from: userAddress,
-                    value: totalValue
-                });
-                const checkFn = async () => {
-                    const currentTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
-                    return {
-                        success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
-                        message: "Obrigado por ajudar a comunidade Monad. Boa Sorte!"
+                try {
+                    const tx = await contract.methods.buyTickets(quantity, alias).send({
+                        from: userAddress,
+                        value: totalValue
+                    });
+                    const checkFn = async () => {
+                        const currentTicketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
+                        return {
+                            success: parseInt(currentTicketCount) > parseInt(initialTicketCount),
+                            message: "Obrigado por ajudar a comunidade Monad. Boa Sorte!"
+                        };
                     };
-                };
-                await Promise.all([
-                    txPromise.catch(error => console.error("Erro na transação inicial:", error)),
-                    monitorTransaction("buyTickets", initialTicketCount, checkFn, "Obrigado por ajudar a comunidade Monad. Boa Sorte!")
-                ]);
+                    await monitorTransaction("buyTickets", checkFn, "Obrigado por ajudar a comunidade Monad. Boa Sorte!");
+                } catch (error) {
+                    if (error.code === 4001 || error.message.includes("user rejected")) {
+                        hidePopup("processingPopup");
+                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
+                        return;
+                    }
+                    throw error;
+                }
             } catch (error) {
                 console.error("Erro crítico ao comprar tickets:", error);
-                if (error.code === 4001 || error.message.includes("user rejected")) {
-                    showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
-                } else {
-                    showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
-                }
+                showErrorPopup("Erro ao iniciar a compra de tickets. Tente novamente.");
             } finally {
                 isProcessing = false;
                 hidePopup("processingPopup");
@@ -753,6 +749,7 @@
                 return;
             }
             isProcessing = true;
+            showProcessingPopup();
             try {
                 const owner = await retryCall(() => contract.methods.owner().call());
                 if (userAddress.toLowerCase() !== owner.toLowerCase()) {
@@ -761,30 +758,32 @@
                 }
                 const initialPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
                 console.log("Enviando transação para sortear ganhador...");
-                const txPromise = contract.methods.drawWinner().send({ from: userAddress });
-                const checkFn = async () => {
-                    const currentPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
-                    if (currentPastWinners.length > initialPastWinners.length) {
-                        const winner = currentPastWinners[currentPastWinners.length - 1];
-                        const winnerTwitter = await retryCall(() => contract.methods.getAlias(winner).call());
-                        return {
-                            success: true,
-                            message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter || 'N/A'})`
-                        };
+                try {
+                    const tx = await contract.methods.drawWinner().send({ from: userAddress });
+                    const checkFn = async () => {
+                        const currentPastWinners = await retryCall(() => contract.methods.getPastWinners().call());
+                        if (currentPastWinners.length > initialPastWinners.length) {
+                            const winner = currentPastWinners[currentPastWinners.length - 1];
+                            const winnerTwitter = await retryCall(() => contract.methods.getAlias(winner).call());
+                            return {
+                                success: true,
+                                message: `Sorteio realizado com sucesso! Ganhador: ${truncateAddress(winner)} (${winnerTwitter || 'N/A'})`
+                            };
+                        }
+                        return { success: false };
+                    };
+                    await monitorTransaction("drawWinner", checkFn, "Sorteio realizado com sucesso!");
+                } catch (error) {
+                    if (error.code === 4001 || error.message.includes("user rejected")) {
+                        hidePopup("processingPopup");
+                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
+                        return;
                     }
-                    return { success: false };
-                };
-                await Promise.all([
-                    txPromise.catch(error => console.error("Erro na transação inicial:", error)),
-                    monitorTransaction("drawWinner", initialPastWinners, checkFn, "Sorteio realizado com sucesso!")
-                ]);
+                    throw error;
+                }
             } catch (error) {
                 console.error("Erro crítico ao sortear ganhador:", error);
-                if (error.code === 4001 || error.message.includes("user rejected")) {
-                    showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
-                } else {
-                    showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
-                }
+                showErrorPopup("Erro ao iniciar o sorteio. Tente novamente.");
             } finally {
                 isProcessing = false;
                 hidePopup("processingPopup");
@@ -801,6 +800,7 @@
                 return;
             }
             isProcessing = true;
+            showProcessingPopup();
             try {
                 const owner = await retryCall(() => contract.methods.owner().call());
                 if (userAddress.toLowerCase() !== owner.toLowerCase()) {
@@ -809,25 +809,27 @@
                 }
                 const initialBalance = await retryCall(() => contract.methods.getContractBalance().call());
                 console.log("Executando reembolso...");
-                const txPromise = contract.methods.refundParticipants().send({ from: userAddress });
-                const checkFn = async () => {
-                    const currentBalance = await retryCall(() => contract.methods.getContractBalance().call());
-                    return {
-                        success: web3.utils.toBN(currentBalance).isZero(),
-                        message: "Reembolsos realizados com sucesso!"
+                try {
+                    const tx = await contract.methods.refundParticipants().send({ from: userAddress });
+                    const checkFn = async () => {
+                        const currentBalance = await retryCall(() => contract.methods.getContractBalance().call());
+                        return {
+                            success: web3.utils.toBN(currentBalance).isZero(),
+                            message: "Reembolsos realizados com sucesso!"
+                        };
                     };
-                };
-                await Promise.all([
-                    txPromise.catch(error => console.error("Erro na transação inicial:", error)),
-                    monitorTransaction("refundParticipants", initialBalance, checkFn, "Reembolsos realizados com sucesso!")
-                ]);
+                    await monitorTransaction("refundParticipants", checkFn, "Reembolsos realizados com sucesso!");
+                } catch (error) {
+                    if (error.code === 4001 || error.message.includes("user rejected")) {
+                        hidePopup("processingPopup");
+                        showErrorPopup("Transação rejeitada no MetaMask. Autorize a transação para continuar.");
+                        return;
+                    }
+                    throw error;
+                }
             } catch (error) {
                 console.error("Erro crítico ao reembolsar participantes:", error);
-                if (error.code === 4001 || error.message.includes("user rejected")) {
-                    showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
-                } else {
-                    showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
-                }
+                showErrorPopup("Erro ao realizar reembolsos. Tente novamente.");
             } finally {
                 isProcessing = false;
                 hidePopup("processingPopup");
@@ -999,7 +1001,7 @@
                     const newQuantityInput = document.getElementById("ticketQuantity");
                     if (newQuantityInput) {
                         newQuantityInput.value = currentQuantity;
-                        newQuantityInput.addEventListener("input", updateTotalCost);
+                        newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
                     }
                     document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
                     document.getElementById("participantCount").innerText = participants.length;
@@ -1015,7 +1017,7 @@
                 }
                 if (isWalletConnected) {
                     await updateWalletBalance();
-                    await updateTotalCost();
+                    await debouncedUpdateTotalCost();
                     updateBuyButton(isRaffleOpen);
                 } else {
                     const walletBalanceElement = document.getElementById("walletBalance");
