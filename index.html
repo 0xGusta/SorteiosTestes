@@ -328,7 +328,7 @@
         let xUsername = "";
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
-        let currentTicketPrice = "200000000000000000"; // 0.2 MON em wei como padrão
+        let currentTicketPrice = "200000000000000000"; // 0.2 MON em wei
 
         const BUY_TICKETS_FORM = `
             <p><strong>Preço do Ticket:</strong> <span id="ticketPrice">0.2</span> MON</p>
@@ -569,13 +569,13 @@
             } else {
                 quantityError.classList.add("hidden");
             }
-            const ticketPrice = currentTicketPrice || "200000000000000000"; // Fallback para 0.2 MON em wei
+            const ticketPrice = currentTicketPrice || "200000000000000000"; // Fallback para 0.2 MON
             const total = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice));
             const totalCostElement = document.getElementById("totalCost");
             if (totalCostElement) {
                 totalCostElement.innerText = web3.utils.fromWei(total.toString(), "ether");
             }
-        }, 300);
+        }, 100);
 
         async function updateWalletBalance() {
             const walletBalanceElement = document.getElementById("walletBalance");
@@ -691,7 +691,7 @@
                 const alias = xUsername;
                 const quantityInput = document.getElementById("ticketQuantity");
                 if (!quantityInput) throw new Error("Campo de quantidade não encontrado.");
-                const quantity = Math.floor(parseFloat(quantityInput.value));
+                const quantity = Math.floor(parseInt(quantityInput.value));
                 if (quantity < 1 || !Number.isInteger(quantity)) {
                     showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
                     return;
@@ -839,7 +839,7 @@
                 isMouseOverButton = true;
                 if (isWalletConnected) {
                     walletMenu.classList.remove("hidden");
-                    console.log("Menu aberto (mouseenter)");
+                    console.log("Menu aberto (mouseenter no botão)");
                 }
             });
             walletButton.addEventListener("mouseleave", () => {
@@ -863,7 +863,7 @@
         }
 
         function showErrorPopup(message) {
-            console.log("Erro exibido:", message);
+            console.log("Exibindo erro:", message);
             document.getElementById("errorMessage").innerText = message;
             document.getElementById("errorPopup").style.display = "block";
             document.getElementById("popupOverlay").style.display = "block";
@@ -882,20 +882,19 @@
 
         function hidePopup(popupId) {
             document.getElementById(popupId).style.display = "none";
-            if ((
-                document.getElementById("errorPopup").style.display !== "block" &&
-                document.getElementById("processingPopup").style.display !== "block" && 
- document.getElementById("thanksPopup").style.display !== "block" &&
-                 document.getElementById("usernamePopup").style.display !== "block" &&
-                 document.getElementById("metamaskMobilePopup").style.display !== "block" &&
-                 document.getElementById("cookieConsent").") !== "block") {
+            if (document.getElementById("errorPopup").style.display !== "block" &&
+                document.getElementById("processingPopup").style.display !== "block" &&
+                document.getElementById("thanksPopup").style.display !== "block" &&
+                document.getElementById("usernamePopup").style.display !== "block" &&
+                document.getElementById("metamaskMobilePopup").style.display !== "block" &&
+                document.getElementById("cookieConsent").style.display !== "block") {
                 document.getElementById("popupOverlay").style.display = "none";
             }
         }
 
         function acceptCookies() {
             acceptedCookies = true;
-            Cookies.set("acceptedCookies", true, { expires: 365 });
+            Cookies.set("acceptedCookies", "true", { expires: 365 });
             hidePopup("cookieConsent");
         }
 
@@ -919,149 +918,143 @@
 
         async function updateUI() {
             try {
-                let ticketPrice = "0", ticketCount = "0", participants = [], isRaffleOpen = false, lastWinner = null;
-                let lastWinnerTwitter = null;
-                owner = null;
+                let ticketPrice = "0", ticketCount = 0, participants = [], isRaffleOpen = false, lastWinner = null, lastWinnerTwitter = null, owner = null;
                 let currentQuantity = 1;
                 const ticketQuantityInput = document.getElementById("ticketQuantity");
                 if (ticketQuantityInput && ticketQuantityInput.value) {
                     currentQuantity = parseFloat(ticketQuantityInput.value) || 1;
                 }
-                if (cache.data && (Date.now() - cache.data.timestamp < cache.validDuration)) {
-                    ({ ticketPrice, ticketCount, participants, ticketPrice, isRaffleOpen, lastWinner, lastWinnerTwitter, owner } = cache.data);
+                if (cache.data && Date.now() - cache.timestamp < cache.validDuration) {
+                    ({ ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner } = cache.data);
                 } else {
                     try {
-                        console.log("Obtendo ticketPrice...");
-                        ticketPrice = await retryCall(() => contract.getMethods().ticketPrice().call());
+                        console.log("Lendo ticketPrice...");
+                        ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
                         currentTicketPrice = ticketPrice; // Atualiza preço global
                     } catch (error) {
-                        console.error("Erro ao obter ticketPrice:", error);
+                        console.error("Erro ao ler ticketPrice:", error);
                     }
                     try {
-                        console.log("Obtendo participantes...");
-                        participants = await retryCall(() => contract.getMethods().getParticipants().call());
+                        console.log("Lendo participantes...");
+                        participants = await retryCall(() => contract.methods.getParticipants().call());
                     } catch (error) {
-                        console.error("Erro ao obter participantes:", error);
+                        console.error("Erro ao ler participantes:", error);
                     }
                     try {
-                        console.log("Obtendo status do sorteio...");
-                        isRaffleOpen = await retryCall(() => contract.getMethods().isRaffleOpen().call()));
+                        console.log("Lendo status do sorteio...");
+                        isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
                     } catch (error) {
-                        console.error("Erro ao obter status do sorteio:", error);
+                        console.error("Erro ao ler isRaffleOpen:", error);
                     }
                     try {
-                        console.log("Obtendo último ganhador...");
-                        const pastWinners = await retryCall(() => contract.getMethods().getPastWinners().call()));
-                        if (pastWinners.length > 0)) {
+                        console.log("Lendo último ganhador...");
+                        const pastWinners = await retryCall(() => contract.methods.getPastWinners().call());
+                        if (pastWinners.length > 0) {
                             lastWinner = pastWinners[pastWinners.length - 1];
-                            lastWinnerTwitter = await retryCall(() => contract.getMethods().getAlias(lastWinner).call());
+                            lastWinnerTwitter = await retryCall(() => contract.methods.getAlias(lastWinner).call());
                         }
                     } catch (error) {
-                            console.error("Erro ao obter pastWinners ou getAlias:", error);
-                        }
+                        console.error("Erro ao ler pastWinners ou getAlias:", error);
+                    }
+                    try {
+                        console.log("Lendo owner...");
+                        owner = await retryCall(() => contract.methods.owner().call());
+                    } catch (error) {
+                        console.error("Erro ao ler owner:", error);
+                    }
+                    if (userAddress && isWalletConnected) {
                         try {
-                            console.log("Obtendo proprietário...");
-                            owner = await retryCall(() => contract.getMethods().owner().call());
+                            console.log("Lendo ticketCount para:", userAddress);
+                            ticketCount = await retryCall(() => contract.methods.getTicketCount(userAddress).call());
                         } catch (error) {
-                            console.error("Erro ao obter owner:", error);
+                            console.error("Erro ao ler ticketCount:", error);
                         }
-                        if (userAddress && isWalletConnected)) {
-                            try {
-                                console.log("Obtendo ticketCount para:", userAddress);
-                                ticketCount } = await retryCall(() => contract.getMethods().getTicketCount().call());
-                            } catch (error) {
-                                console.error("Erro ao obter ticketCount:", error);
-                            }
-                        }
-                        cache.data = { ticketPrice, ticketCount, participants, price, isRaffleOpen, lastWinner, lastWinnerTwitter, owner };
-                            cache.data.timestamp = Date.now();
-                            }
-                        const drawWinnerButton = document.getElementById("drawWinnerButton");
-                        const refundParticipantsButton = document.getElementById("refundParticipantsButton");
-                        if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
-                            drawWinnerButton.classList.remove("hidden");
-                            refundParticipantsButton.classList.remove("hidden");
-                        } else {
-                            drawWinnerButton.classList.add("hidden");
-                            refundParticipantsButton.classList.add("hidden");
-                            }
-                            const ticketSection = document.getElementById("ticketSection");
-                            const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
-                            if (!isRaffleOpen && lastWinner) {
-                                ticketSection.innerHTML = `
-                                    <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || "Não disponível"})</p>
-                                `;
-                            } else if (!isRaffleOpen) {
-                                ticketSection.innerHTML = `
-                                    <p class="text-base"><strong>Nenhum ganhador ainda.</strong>.</p>
-                                `;
-                            } else if (!isCurrentlyBuyForm) {
-                                ticketSection.innerHTML = BUY_TICKETS_FORM;
-                                const newQuantityInput = document.getElementById("ticketQuantity");
-                                if (newQuantityInput) {
-                                    newQuantityInput.value = currentQuantity;
-                                    newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
-                                }
-                                document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                                document.getElementById("participantCount").innerText = participants.length;
-                                document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua carteira";
-                                const buyTicketsButton = document.getElementById("buyTickets");
-                                if (buyTicketsButton)) {
-                                    buyTicketsButton.addEventListener("click", debounce(handleBuyTickets, 500));
-                                }
-                            } else {
-                                document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                                document.getElementById("participantCount").innerText = participants.length;
-                                document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conectar sua Wallet";
-                                }
-                                if (isWalletConnected)) {
-                                    await updateWalletBalance();
-                                    await debouncedUpdateTotalCost();
-                                    updateBuyButton(isRaffleOpen);
-                                } else {
-                                    const walletBalanceElement = document.getElementById("walletBalance");
-                                    const totalCostElement = document.getElementById("totalCost");
-                                    if (walletBalanceElement)) walletBalanceElement.innerText = "0 MON";
-                                    if (totalCostElement)) {
-                                        totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
-                                    }
-                                    updateBuyButton(isRaffleOpen);
-                                }
-                                const participantsList = document.getElementById("participantsList");
-                                const participantData = [];
-                                const uniqueParticipants = [...new Set(participants)];
-                                for (let k = i; i = <0; i < Math.min(uniqueParticipants.length, 5)); i++) {
-                                    const participant = uniqueParticipants[i];
-                                    if (!uniqueParticipants.utils.isAddress(participant)) {
-                                        continue;
-                                    }
-                                    let participantAlias = "Desconhecido";
-                                    let count = 0;
-                                    try {
-                                        alias = await retryCall(() => contract.getMethods().getAlias(participant)).call());
-                                        count = await retryCall(() => contract.getMethods().getTicketCount().call())participantCount);
-                                    } catch (error)) {
-                                        console.error("Erro ao obter dados do participante ${participant}:", error);
-                                    }
-                                    participantData.append({ address: participant, alias, count });
-                                    }
-                                participantData.sort((p, q) => q.count - p.count);
-                                    participantData.forEach(({ address}^{+}, alias, count }, index) => {
-                                        const li = listItem.createElement("li");
-                                        li.setAttribute("data-rank", index + 1);
-                                        li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
-                                        participantsList.appendChild(li);
-                                        participantList.appendChild(li);
-                                    });
-                                });
-                            document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
-                            } catch (error) {
-                                console.error("Erro ao atualizar UI:", error);
-                                showErrorPopup("Erro ao atualizar a interface. Tente novamente.");
-                            }
-                        }
+                    }
+                    cache.data = { ticketPrice, ticketCount, participants, isRaffleOpen, lastWinner, lastWinnerTwitter, owner };
+                    cache.timestamp = Date.now();
+                }
+                const drawWinnerButton = document.getElementById("drawWinnerButton");
+                const refundParticipantsButton = document.getElementById("refundParticipantsButton");
+                if (isWalletConnected && userAddress && owner && userAddress.toLowerCase() === owner.toLowerCase()) {
+                    drawWinnerButton.classList.remove("hidden");
+                    refundParticipantsButton.classList.remove("hidden");
+                } else {
+                    drawWinnerButton.classList.add("hidden");
+                    refundParticipantsButton.classList.add("hidden");
+                }
+                const ticketSection = document.getElementById("ticketSection");
+                const isCurrentlyBuyForm = ticketSection.querySelector("#buyTicketsForm") !== null;
+                if (!isRaffleOpen && lastWinner) {
+                    ticketSection.innerHTML = `
+                        <p class="text-base"><strong>Último Ganhador:</strong> ${truncateAddress(lastWinner)} (Twitter: ${lastWinnerTwitter || 'N/A'})</p>
+                    `;
+                } else if (!isRaffleOpen) {
+                    ticketSection.innerHTML = `
+                        <p class="text-base"><strong>Nenhum ganhador ainda.</strong></p>
+                    `;
+                } else if (!isCurrentlyBuyForm) {
+                    ticketSection.innerHTML = BUY_TICKETS_FORM;
+                    const newQuantityInput = document.getElementById("ticketQuantity");
+                    if (newQuantityInput) {
+                        newQuantityInput.value = currentQuantity;
+                        newQuantityInput.addEventListener("input", debouncedUpdateTotalCost);
+                    }
+                    document.getElementById("ticketPrice").innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    document.getElementById("participantCount").innerText = participants.length;
+                    document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Conecte sua Wallet";
+                    const buyTicketsButton = document.getElementById("buyTickets");
+                    if (buyTicketsButton) {
+                        buyTicketsButton.addEventListener("click", debounce(handleBuyTickets, 500));
+                    }
+                } else {
+                    document.getElementById("ticketPrice").innerText = ticketPrice === "0.2" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    document.getElementById("participantCount").innerText = ticketCount.length;
+                    document.getElementById("participantsCount").innerText = ticketCount;
+                    document.getElementById("ticketCount").innerText = isWalletConnected ? ticketCount : "Connecte sua wallet";
+                }
+                if (isWalletConnected) {
+                    await updateWalletBalance();
+                    debouncedUpdateTotalCost();
+                    updateBuyButton(isRaffleOpen);
+                } else {
+                    const walletBalanceElement = document.getElementById("walletBalance");
+                    const totalCostElement = document.getElementById("totalCost");
+                    if (walletBalanceElement) walletBalanceElement.innerText = "0 MON";
+                    if (totalCostElement) totalCostElement.innerText = ticketPrice === "0" ? "0.2" : web3.utils.fromWei(ticketPrice, "ether");
+                    updateBuyButton(isRaffleOpen);
+                }
+                const participantsList = document.getElementById("participantsList");
+                participantsList.innerHTML = "";
+                const participantData = [];
+                const uniqueParticipants = [...new Set(participants)];
+                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+                    const participant = uniqueParticipants[i];
+                    if (!web3.utils.isAddress(participant)) continue;
+                    let alias = "Desconhecido";
+                    let count = 0;
+                    try {
+                        alias = await retryCall(() => contract.getMethods().getAlias(participant).call());
+                        count = await retryCall(() => contract.getMethods().getTicketCount(participant).call());
+                    } catch (error) {
+                        console.error("Erro ao obter dados do participante ${participant}:", error);
+                    }
+                    participantData.push({ address: participant, count });
+                }
+                participantData.sort((a, b) => b.count - a.count);
+                participantData.forEach(({ address, alias, count }, index) => {
+                    const li = document.createElement("li");
+                    li.setAttribute("data-rank", index + 1);
+                    li.innerText = `${truncateAddress(address)} (${alias}): ${count} tickets`;
+                    participantsList.appendChild(li);
+                });
+                document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
+            } catch (error) {
+                    console.error("Erro ao atualizar UI:", error);
+                    showErrorPopup("Erro ao atualizar a interface. Tente novamente.");
+                }
+            }
 
-                        window.onload = init;
-    </script>
-</body>
+            window.onload = init;
+        </script>
+    </body>
 </html>
