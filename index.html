@@ -204,7 +204,7 @@
         <div class="loader"></div>
     </div>
     <div id="thanksPopup" class="popup">
-        <p>Obrigado por ajudar a comunidade Monad. Boa Sorte!</p>
+        <p id="winnerMessage"></p>
         <button id="closeThanksPopup" class="mt-4 action-button">Fechar</button>
     </div>
     <div id="usernamePopup" class="popup">
@@ -269,6 +269,7 @@
                 <p><strong>Preço do Ticket:</strong> <span id="ticketPrice">0.2</span> MON</p>
                 <p><strong>Carteiras Participantes:</strong> <span id="participantCount">0</span></p>
                 <p><strong>Seus Tickets:</strong> <span id="ticketCount">Conecte sua Wallet</span></p>
+                <p id="lastWinner" class="hidden"><strong>Último vencedor:</strong> <span id="lastWinnerInfo">Nenhum</span></p>
                 <div class="mt-4">
                     <div class="flex items-center gap-4">
                         <div>
@@ -292,7 +293,7 @@
         <div class="md:w-1/2 mx-auto">
             <div id="participantsSection">
                 <h2 class="text-xl font-semibold mb-4 text-white">Ranking</h2>
-                <ul id="participantsList" class="bg-gray-800 p-4 rounded-lg list-none">Carregando...</ul>
+                <ul id="participantsList" class="bg-gray-800 p-4 rounded-lg list-none"></ul>
             </div>
         </div>
     </section>
@@ -309,8 +310,8 @@
             nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
             blockExplorerUrls: ["https://testnet.monadexplorer.com"]
         };
-        const CONTRACT_ADDRESS = "0x1Fa8151B96adEE65470404EC2F5628CC5ace4058";
-        const CONTRACT_ABI = [
+        const CONTRACT_ADDRESS = "0x12A322c1C44CD5b90f4BE8E13F2e75BbAAb96799";
+        const CONTRACT_API = [
             {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
             {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"participant","type":"address"},{"indexed":false,"internalType":"string","name":"newAlias","type":"string"}],"name":"AliasUpdated","type":"event"},
             {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"raffleNumber","type":"uint256"}],"name":"RaffleStarted","type":"event"},
@@ -325,7 +326,7 @@
             {"inputs":[],"name":"getContractBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"getParticipants","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"getPastWinners","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"_participant","type":"address"}],"name":"getTicketCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"address","name":"_participant","type":"address"}],"name":"getTicketCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view_lambda":null,"name":"getTicketCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"isRaffleOpen","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"raffleCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -495,6 +496,14 @@
                 }
                 const tx = await contract.methods.drawWinner().send({ from: userAddress });
                 console.log("Vencedor sorteado:", tx);
+                const winner = tx.events.WinnerDrawn.returnValues.winner;
+                let alias = "Desconhecido";
+                try {
+                    alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                } catch (error) {
+                    console.error("Erro ao obter alias do vencedor:", error);
+                }
+                document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
                 showThanksPopup();
                 cache = { data: null, timestamp: 0, validDuration: 60000 };
                 await updateUI();
@@ -831,6 +840,7 @@
                     value: totalValue
                 });
                 console.log("Transação bem-sucedida:", tx);
+                document.getElementById("winnerMessage").innerText = "Obrigado por ajudar a comunidade Monad. Boa Sorte!";
                 showThanksPopup();
                 cache = { data: null, timestamp: 0, validDuration: 60000 };
                 await updateUI();
@@ -1030,6 +1040,33 @@
                     participantsList.appendChild(li);
                 });
                 document.getElementById("participantsSection").style.display = participantData.length > 0 ? "block" : "none";
+                const lastWinner = document.getElementById("lastWinner");
+                const lastWinnerInfo = document.getElementById("lastWinnerInfo");
+                if (!isRaffleOpen) {
+                    try {
+                        const pastWinners = await retryCall(() => contract.methods.getPastWinners().call());
+                        if (pastWinners.length > 0) {
+                            const winner = pastWinners[pastWinners.length - 1];
+                            let alias = "Desconhecido";
+                            try {
+                                alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                            } catch (error) {
+                                console.error("Erro ao obter alias do último vencedor:", error);
+                            }
+                            lastWinnerInfo.innerText = `${truncateAddress(winner)} (${alias})`;
+                            lastWinner.classList.remove("hidden");
+                        } else {
+                            lastWinnerInfo.innerText = "Nenhum";
+                            lastWinner.classList.remove("hidden");
+                        }
+                    } catch (error) {
+                        console.error("Erro ao obter último vencedor:", error);
+                        lastWinnerInfo.innerText = "Erro";
+                        lastWinner.classList.remove("hidden");
+                    }
+                } else {
+                    lastWinner.classList.add("hidden");
+                }
             } catch (error) {
                 console.error("Erro ao atualizar UI:", error);
             }
