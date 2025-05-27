@@ -804,7 +804,7 @@
                 const participantsList = document.getElementById("participantsList");
                 const participantData = [];
                 const uniqueParticipants = [...new Set(participants)];
-                for (let i = 0; i < Math.min(uniqueParticipants.length, 5); i++) {
+                for (let i = 0; i < Math.min(uniqueParticipants.length); i++) {
                     const participant = uniqueParticipants[i];
                     if (!web3.utils.isAddress(participant)) continue;
                     let alias = "Desconhecido";
