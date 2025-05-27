@@ -132,18 +132,18 @@
             width: 128px;
             height: 128px;
         }
-        #walletMenu {
+        #walletMenu, #ownerMenu {
             z-index: 1001;
             transition: opacity 0.3s ease, transform 0.3s ease;
             transform: translateY(-10px);
             opacity: 0;
         }
-        #walletMenu:not(.hidden) {
+        #walletMenu:not(.hidden), #ownerMenu:not(.hidden) {
             transform: translateY(0);
             opacity: 1;
         }
         @media (max-width: 768px) {
-            #walletMenu {
+            #walletMenu, #ownerMenu {
                 width: 100%;
                 right: 0;
             }
@@ -221,11 +221,18 @@
         <p>Este site usa cookies para melhorar sua experiência.</p>
         <button id="acceptCookies" class="action-button">Aceitar</button>
     </div>
+    <div id="setTicketPricePopup" class="popup">
+        <p>Insira o novo preço do ticket (em MON):</p>
+        <input id="newTicketPriceInput" type="number" step="0.01" min="0" placeholder="Ex.: 0.2" class="border border-gray-600 bg-gray-800 text-white p-2 w-full mb-2 rounded">
+        <button id="submitTicketPrice" class="mt-4 action-button">Definir Preço</button>
+        <button id="closeTicketPricePopup" class="mt-4 secondary-button">Cancelar</button>
+    </div>
     <header class="bg-gray-800 w-full py-4 shadow-lg">
         <div class="container mx-auto px-4 flex justify-between items-center">
             <img id="logo" src="/images/iconmain.png" alt="Sorteios 0xGus" width="128" height="128">
             <div class="relative flex gap-2">
                 <button id="walletButton" class="action-button">Conectar Carteira</button>
+                <button id="ownerButton" class="action-button hidden">Menu do Dono</button>
                 <div id="walletMenu" class="hidden absolute right-0 mt-2 w-48 bg-gray-700 text-white rounded-lg shadow-lg">
                     <div class="p-2 border-b border-gray-600">
                         <p><strong>Endereço:</strong> <span id="userAddress" class="truncate-address"></span></p>
@@ -235,6 +242,15 @@
                         <p class="text-sm text-gray-400">Errou o @? Reconecte a wallet e compre mais 1 ticket ou entre em contato com <a href="https://x.com/0xGustavo" target="_blank" class="underline hover:text-green-600">0xGus</a></p>
                     </div>
                     <button id="disconnectWallet" class="w-full text-left p-2 secondary-button">Desconectar Carteira</button>
+                </div>
+                <div id="ownerMenu" class="hidden absolute right-0 mt-2 w-48 bg-gray-700 text-white rounded-lg shadow-lg">
+                    <div class="p-2 border-b border-gray-600">
+                        <p><strong>Menu do Dono</strong></p>
+                    </div>
+                    <button id="startRaffle" class="w-full text-left p-2 secondary-button">Iniciar Sorteio</button>
+                    <button id="drawWinner" class="w-full text-left p-2 secondary-button">Sortear Vencedor</button>
+                    <button id="setTicketPrice" class="w-full text-left p-2 secondary-button">Definir Preço do Ticket</button>
+                    <button id="refundParticipants" class="w-full text-left p-2 secondary-button">Reembolsar Participantes</button>
                 </div>
             </div>
         </div>
@@ -276,7 +292,7 @@
         <div class="md:w-1/2 mx-auto">
             <div id="participantsSection">
                 <h2 class="text-xl font-semibold mb-4 text-white">Ranking</h2>
-                <ul id="participantsList" class="bg-gray-800 p-4 rounded-lg list-none">Carregando...</ul>
+                <ul id="participantsList" class="bg-gray-800 p-4 rounded-lg list-none"></ul>
             </div>
         </div>
     </section>
@@ -324,6 +340,7 @@
         let xUsername = "";
         let acceptedCookies = false;
         let cache = { data: null, timestamp: 0, validDuration: 60000 };
+        let isOwner = false;
 
         async function init() {
             try {
@@ -349,6 +366,7 @@
                         document.getElementById("walletButton").innerText = `Carteira: ${truncateAddress(userAddress)}`;
                         document.getElementById("userAddress").innerText = userAddress;
                         document.getElementById("xUsernameDisplay").innerText = xUsername || "Não definido";
+                        await checkOwner();
                     } else {
                         Cookies.remove("userAddress");
                         Cookies.remove("xUsername");
@@ -368,6 +386,13 @@
             document.getElementById("closeThanksPopup").addEventListener("click", () => hidePopup("thanksPopup"));
             document.getElementById("submitUsername").addEventListener("click", submitTwitterUsername);
             document.getElementById("closeMetamaskMobilePopup").addEventListener("click", () => hidePopup("metamaskMobilePopup"));
+            document.getElementById("startRaffle").addEventListener("click", debounce(handleStartRaffle, 500));
+            document.getElementById("drawWinner").addEventListener("click", debounce(handleDrawWinner, 500));
+            document.getElementById("setTicketPrice").addEventListener("click", () => showSetTicketPricePopup());
+            document.getElementById("submitTicketPrice").addEventListener("click", debounce(handleSetTicketPrice, 500));
+            document.getElementById("closeTicketPricePopup").addEventListener("click", () => hidePopup("setTicketPricePopup"));
+            document.getElementById("refundParticipants").addEventListener("click", debounce(handleRefundParticipants, 500));
+            document.getElementById("ownerButton").addEventListener("click", toggleOwnerMenu);
             setupImage3DEffect();
             setupMenuCloseListener();
             if (!Cookies.get("acceptedCookies") && !acceptedCookies) {
@@ -383,7 +408,7 @@
             return function executedFunction(...args) {
                 const later = () => {
                     clearTimeout(timeout);
-                     func(...args);
+                    func(...args);
                 };
                 clearTimeout(timeout);
                 timeout = setTimeout(later, wait);
@@ -401,6 +426,154 @@
         function showMetamaskMobilePopup() {
             document.getElementById("metamaskMobilePopup").style.display = "block";
             document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        async function checkOwner() {
+            try {
+                const owner = await retryCall(() => contract.methods.owner().call());
+                isOwner = userAddress && web3.utils.toChecksumAddress(userAddress) === web3.utils.toChecksumAddress(owner);
+                document.getElementById("ownerButton").classList.toggle("hidden", !isOwner);
+            } catch (error) {
+                console.error("Erro ao verificar dono:", error);
+                showErrorPopup("Erro ao verificar dono do contrato.");
+            }
+        }
+
+        function toggleOwnerMenu() {
+            const ownerMenu = document.getElementById("ownerMenu");
+            ownerMenu.classList.toggle("hidden");
+        }
+
+        async function handleStartRaffle() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            isProcessing = true;
+            showProcessingPopup();
+            try {
+                const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                if (isRaffleOpen) {
+                    showErrorPopup("O sorteio já está aberto.");
+                    return;
+                }
+                const tx = await contract.methods.startRaffle().send({ from: userAddress });
+                console.log("Sorteio iniciado:", tx);
+                showThanksPopup();
+                cache = { data: null, timestamp: 0, validDuration: 60000 };
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao iniciar sorteio:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else {
+                    showErrorPopup("Erro ao iniciar o sorteio. Verifique se você é o dono do contrato.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+            }
+        }
+
+        async function handleDrawWinner() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            isProcessing = true;
+            showProcessingPopup();
+            try {
+                const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                if (!isRaffleOpen) {
+                    showErrorPopup("O sorteio não está aberto.");
+                    return;
+                }
+                const participants = await retryCall(() => contract.methods.getParticipants().call());
+                if (participants.length === 0) {
+                    showErrorPopup("Nenhum participante para sortear.");
+                    return;
+                }
+                const tx = await contract.methods.drawWinner().send({ from: userAddress });
+                console.log("Vencedor sorteado:", tx);
+                showThanksPopup();
+                cache = { data: null, timestamp: 0, validDuration: 60000 };
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao sortear vencedor:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else {
+                    showErrorPopup("Erro ao sortear vencedor. Verifique se você é o dono do contrato.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+            }
+        }
+
+        function showSetTicketPricePopup() {
+            document.getElementById("newTicketPriceInput").value = "";
+            document.getElementById("setTicketPricePopup").style.display = "block";
+            document.getElementById("popupOverlay").style.display = "block";
+        }
+
+        async function handleSetTicketPrice() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            isProcessing = true;
+            showProcessingPopup();
+            try {
+                const newPrice = document.getElementById("newTicketPriceInput").value;
+                if (!newPrice || parseFloat(newPrice) <= 0) {
+                    showErrorPopup("Insira um preço válido maior que 0.");
+                    return;
+                }
+                const newPriceWei = web3.utils.toWei(newPrice, "ether");
+                const tx = await contract.methods.setTicketPrice(newPriceWei).send({ from: userAddress });
+                console.log("Preço do ticket atualizado:", tx);
+                showThanksPopup();
+                cache = { data: null, timestamp: 0, validDuration: 60000 };
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao definir preço do ticket:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else {
+                    showErrorPopup("Erro ao definir preço do ticket. Verifique se você é o dono do contrato.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+                hidePopup("setTicketPricePopup");
+            }
+        }
+
+        async function handleRefundParticipants() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            isProcessing = true;
+            showProcessingPopup();
+            try {
+                const tx = await contract.methods.refundParticipants().send({ from: userAddress });
+                console.log("Participantes reembolsados:", tx);
+                showThanksPopup();
+                cache = { data: null, timestamp: 0, validDuration: 60000 };
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao reembolsar participantes:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else {
+                    showErrorPopup("Erro ao reembolsar participantes. Verifique se você é o dono do contrato.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+            }
         }
 
         async function connectWallet() {
@@ -458,6 +631,7 @@
                 document.getElementById("walletMenu").classList.add("hidden");
                 document.getElementById("userAddress").innerText = userAddress;
                 Cookies.set("userAddress", userAddress, { expires: 7 });
+                await checkOwner();
                 if (!xUsername) {
                     showUsernamePopup();
                 } else {
@@ -480,6 +654,7 @@
         function disconnectWallet() {
             userAddress = null;
             isWalletConnected = false;
+            isOwner = false;
             xUsername = "";
             Cookies.remove("userAddress");
             Cookies.remove("xUsername");
@@ -489,6 +664,8 @@
             document.getElementById("walletButton").classList.remove("disabled-button");
             document.getElementById("walletButton").classList.add("action-button");
             document.getElementById("walletMenu").classList.add("hidden");
+            document.getElementById("ownerButton").classList.add("hidden");
+            document.getElementById("ownerMenu").classList.add("hidden");
             document.getElementById("userAddress").innerText = "";
             document.getElementById("xUsernameDisplay").innerText = "";
             document.getElementById("walletBalance").innerText = "0 MON";
@@ -660,7 +837,7 @@
             } catch (error) {
                 console.error("Erro ao comprar tickets:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
-                    showErrorPopup("Você cancelou a transação. Autorize a transação para continuar.");
+                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
                 } else {
                     showErrorPopup("Erro ao processar a compra de tickets. Tente novamente.");
                 }
@@ -671,32 +848,58 @@
         }
 
         function setupMenuCloseListener() {
-            let isMouseOverButton = false, isMouseOverMenu = false;
+            let isMouseOverWalletButton = false, isMouseOverWalletMenu = false;
+            let isMouseOverOwnerButton = false, isMouseOverOwnerMenu = false;
             const walletButton = document.getElementById("walletButton");
             const walletMenu = document.getElementById("walletMenu");
+            const ownerButton = document.getElementById("ownerButton");
+            const ownerMenu = document.getElementById("ownerMenu");
             walletButton.addEventListener("mouseenter", () => {
-                isMouseOverButton = true;
+                isMouseOverWalletButton = true;
                 if (isWalletConnected) {
                     walletMenu.classList.remove("hidden");
-                    console.log("Menu aberto (mouseenter no botão)");
+                    console.log("Menu da carteira aberto (mouseenter no botão)");
                 }
             });
             walletButton.addEventListener("mouseleave", () => {
-                isMouseOverButton = false;
-                console.log("Mouse saiu do botão");
+                isMouseOverWalletButton = false;
+                console.log("Mouse saiu do botão da carteira");
             });
             walletMenu.addEventListener("mouseenter", () => {
-                isMouseOverMenu = true;
-                console.log("Mouse sobre o menu");
+                isMouseOverWalletMenu = true;
+                console.log("Mouse sobre o menu da carteira");
             });
             walletMenu.addEventListener("mouseleave", () => {
-                isMouseOverMenu = false;
-                console.log("Mouse saiu do menu");
+                isMouseOverWalletMenu = false;
+                console.log("Mouse saiu do menu da carteira");
+            });
+            ownerButton.addEventListener("mouseenter", () => {
+                isMouseOverOwnerButton = true;
+                if (isOwner) {
+                    ownerMenu.classList.remove("hidden");
+                    console.log("Menu do dono aberto (mouseenter no botão)");
+                }
+            });
+            ownerButton.addEventListener("mouseleave", () => {
+                isMouseOverOwnerButton = false;
+                console.log("Mouse saiu do botão do dono");
+            });
+            ownerMenu.addEventListener("mouseenter", () => {
+                isMouseOverOwnerMenu = true;
+                console.log("Mouse sobre o menu do dono");
+            });
+            ownerMenu.addEventListener("mouseleave", () => {
+                isMouseOverOwnerMenu = false;
+                console.log("Mouse saiu do menu do dono");
             });
             document.addEventListener("mousemove", (e) => {
-                if (!isMouseOverButton && !isMouseOverMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
+                if (!isMouseOverWalletButton && !isMouseOverWalletMenu && !walletButton.contains(e.target) && !walletMenu.contains(e.target)) {
                     walletMenu.classList.add("hidden");
-                    console.log("Menu fechado (mouse fora)");
+                    console.log("Menu da carteira fechado (mouse fora)");
+                }
+                if (!isMouseOverOwnerButton && !isMouseOverOwnerMenu && !ownerButton.contains(e.target) && !ownerMenu.contains(e.target)) {
+                    ownerMenu.classList.add("hidden");
+                    console.log("Menu do dono fechado (mouse fora)");
                 }
             });
         }
@@ -725,7 +928,8 @@
                 document.getElementById("thanksPopup").style.display !== "block" &&
                 document.getElementById("usernamePopup").style.display !== "block" &&
                 document.getElementById("metamaskMobilePopup").style.display !== "block" &&
-                document.getElementById("cookieConsent").style.display !== "block") {
+                document.getElementById("cookieConsent").style.display !== "block" &&
+                document.getElementById("setTicketPricePopup").style.display !== "block") {
                 document.getElementById("popupOverlay").style.display = "none";
             }
         }
