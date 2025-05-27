@@ -255,7 +255,7 @@
             </div>
         </div>
     </header>
-    <main class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 flex-1">
+    <main class="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 flex-1
         <div class="md:w-1/2">
             <h2 class="text-xl font-semibold mb-4 text-white">Monadverse Chapter 1 + 5 MON</h2>
             <div class="overflow-hidden rounded-lg">
@@ -445,6 +445,29 @@
             ownerMenu.classList.toggle("hidden");
         }
 
+        async function verifyTransaction(txHash, maxAttempts = 60, intervalMs = 1000) {
+            let attempts = 0;
+            while (attempts < maxAttempts) {
+                try {
+                    const receipt = await web3.eth.getTransactionReceipt(txHash);
+                    if (receipt) {
+                        if (receipt.status) {
+                            console.log("Transação confirmada:", receipt);
+                            return receipt;
+                        } else {
+                            throw new Error("Transação falhou na blockchain.");
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Tentativa ${attempts + 1} de verificar transação falhou:`, error);
+                }
+                attempts++;
+                const delay = intervalMs * Math.pow(1.5, attempts > 5 ? 5 : attempts); // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            throw new Error("Tempo limite atingido ao verificar transação.");
+        }
+
         async function handleStartRaffle() {
             if (isProcessing) {
                 showProcessingPopup();
@@ -459,7 +482,9 @@
                     return;
                 }
                 const tx = await contract.methods.startRaffle().send({ from: userAddress });
-                console.log("Sorteio iniciado:", tx);
+                const receipt = await verifyTransaction(tx.transactionHash);
+                console.log("Sorteio iniciado:", receipt);
+                document.getElementById("winnerMessage").innerText = "Sorteio iniciado com sucesso!";
                 showThanksPopup();
                 cache = { data: null, timestamp: 0, validDuration: 60000 };
                 await updateUI();
@@ -467,8 +492,10 @@
                 console.error("Erro ao iniciar sorteio:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else if (error.message.includes("Only owner")) {
+                    showErrorPopup("Apenas o dono do contrato pode iniciar o sorteio.");
                 } else {
-                    showErrorPopup("Erro ao iniciar o sorteio. Verifique se você é o dono do contrato.");
+                    showErrorPopup("Erro ao iniciar o sorteio. Verifique sua conexão e tente novamente.");
                 }
             } finally {
                 isProcessing = false;
@@ -495,25 +522,23 @@
                     return;
                 }
                 const initialWinners = await retryCall(() => contract.methods.getPastWinners().call());
-                const initialLastWinner = initialWinners.length > 0 ? initialWinners[initialWinners.length - 1] : null;
+                const initialWinnerCount = initialWinners.length;
 
-                const txPromise = contract.methods.drawWinner().send({ from: userAddress });
-                console.log("Transação de sorteio enviada...");
+                const tx = await contract.methods.drawWinner().send({ from: userAddress });
+                const receipt = await verifyTransaction(tx.transactionHash);
+                console.log("Transação de sorteio confirmada:", receipt);
 
                 let winner = null;
                 let alias = "Desconhecido";
-                const maxAttempts = 30;
                 let attempts = 0;
-
+                const maxAttempts = 60;
                 const pollInterval = setInterval(async () => {
                     attempts++;
                     try {
                         const currentWinners = await retryCall(() => contract.methods.getPastWinners().call());
-                        const currentLastWinner = currentWinners.length > 0 ? currentWinners[currentWinners.length - 1] : null;
-
-                        if (currentLastWinner && currentLastWinner !== initialLastWinner) {
+                        if (currentWinners.length > initialWinnerCount) {
                             clearInterval(pollInterval);
-                            winner = currentLastWinner;
+                            winner = currentWinners[currentWinners.length - 1];
                             try {
                                 alias = await retryCall(() => contract.methods.getAlias(winner).call());
                             } catch (error) {
@@ -527,49 +552,72 @@
                             hidePopup("processingPopup");
                         } else if (attempts >= maxAttempts) {
                             clearInterval(pollInterval);
-                            showErrorPopup("Tempo limite atingido. A transação pode não ter sido confirmada.");
+                            // Fallback to transaction event if polling fails
+                            if (tx.events && tx.events.WinnerDrawn) {
+                                winner = tx.events.WinnerDrawn.returnValues.winner;
+                                try {
+                                    alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                                } catch (error) {
+                                    console.error("Erro ao obter alias do vencedor:", error);
+                                }
+                                document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
+                                showThanksPopup();
+                            } else {
+                                showErrorPopup("Não foi possível confirmar o vencedor. Verifique o explorador de blocos.");
+                            }
+                            cache = { data: null, timestamp: 0, validDuration: 60000 };
+                            await updateUI();
                             isProcessing = false;
                             hidePopup("processingPopup");
                         }
                     } catch (error) {
-                        console.error("Erro ao verificar vencedores:", error);
+                        console.error(`Erro ao verificar vencedores (tentativa ${attempts}):`, error);
                         if (attempts >= maxAttempts) {
                             clearInterval(pollInterval);
-                            showErrorPopup("Erro ao verificar o vencedor. Tente novamente.");
+                            if (tx.events && tx.events.WinnerDrawn) {
+                                winner = tx.events.WinnerDrawn.returnValues.winner;
+                                try {
+                                    alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                                } catch (error) {
+                                    console.error("Erro ao obter alias do vencedor:", error);
+                                }
+                                document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
+                                showThanksPopup();
+                            } else {
+                                showErrorPopup("Não foi possível confirmar o vencedor. Verifique o explorador de blocos.");
+                            }
+                            cache = { data: null, timestamp: 0, validDuration: 60000 };
+                            await updateUI();
                             isProcessing = false;
                             hidePopup("processingPopup");
                         }
                     }
                 }, 1000);
 
-                try {
-                    const tx = await txPromise;
-                    console.log("Transação de sorteio confirmada:", tx);
-                    if (!winner) {
-                        winner = tx.events.WinnerDrawn.returnValues.winner;
-                        try {
-                            alias = await retryCall(() => contract.methods.getAlias(winner).call());
-                        } catch (error) {
-                            console.error("Erro ao obter alias do vencedor:", error);
-                        }
-                        clearInterval(pollInterval);
-                        document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
-                        showThanksPopup();
-                        cache = { data: null, timestamp: 0, validDuration: 60000 };
-                        await updateUI();
-                        isProcessing = false;
-                        hidePopup("processingPopup");
-                    }
-                } catch (error) {
+                // Ensure polling stops if transaction resolves early
+                if (tx.events && tx.events.WinnerDrawn) {
                     clearInterval(pollInterval);
-                    throw error;
+                    winner = tx.events.WinnerDrawn.returnValues.winner;
+                    try {
+                        alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                    } catch (error) {
+                        console.error("Erro ao obter alias do vencedor:", error);
+                    }
+                    document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
+                    showThanksPopup();
+                    cache = { data: null, timestamp: 0, validDuration: 60000 };
+                    await updateUI();
+                    isProcessing = false;
+                    hidePopup("processingPopup");
                 }
             } catch (error) {
                 console.error("Erro ao sortear vencedor:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else if (error.message.includes("Only owner")) {
+                    showErrorPopup("Apenas o dono do contrato pode sortear o vencedor.");
                 } else {
-                    showErrorPopup("Erro ao sortear vencedor. Verifique se você é o dono do contrato.");
+                    showErrorPopup("Erro ao sortear vencedor. Verifique sua conexão e tente novamente.");
                 }
                 isProcessing = false;
                 hidePopup("processingPopup");
@@ -597,7 +645,9 @@
                 }
                 const newPriceWei = web3.utils.toWei(newPrice, "ether");
                 const tx = await contract.methods.setTicketPrice(newPriceWei).send({ from: userAddress });
-                console.log("Preço do ticket atualizado:", tx);
+                const receipt = await verifyTransaction(tx.transactionHash);
+                console.log("Preço do ticket atualizado:", receipt);
+                document.getElementById("winnerMessage").innerText = "Preço do ticket atualizado com sucesso!";
                 showThanksPopup();
                 cache = { data: null, timestamp: 0, validDuration: 60000 };
                 await updateUI();
@@ -605,8 +655,10 @@
                 console.error("Erro ao definir preço do ticket:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else if (error.message.includes("Only owner")) {
+                    showErrorPopup("Apenas o dono do contrato pode definir o preço do ticket.");
                 } else {
-                    showErrorPopup("Erro ao definir preço do ticket. Verifique se você é o dono do contrato.");
+                    showErrorPopup("Erro ao definir preço do ticket. Verifique sua conexão e tente novamente.");
                 }
             } finally {
                 isProcessing = false;
@@ -624,7 +676,9 @@
             showProcessingPopup();
             try {
                 const tx = await contract.methods.refundParticipants().send({ from: userAddress });
-                console.log("Participantes reembolsados:", tx);
+                const receipt = await verifyTransaction(tx.transactionHash);
+                console.log("Participantes reembolsados:", receipt);
+                document.getElementById("winnerMessage").innerText = "Participantes reembolsados com sucesso!";
                 showThanksPopup();
                 cache = { data: null, timestamp: 0, validDuration: 60000 };
                 await updateUI();
@@ -632,8 +686,64 @@
                 console.error("Erro ao reembolsar participantes:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
                     showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else if (error.message.includes("Only owner")) {
+                    showErrorPopup("Apenas o dono do contrato pode reembolsar participantes.");
                 } else {
-                    showErrorPopup("Erro ao reembolsar participantes. Verifique se você é o dono do contrato.");
+                    showErrorPopup("Erro ao reembolsar participantes. Verifique sua conexão e tente novamente.");
+                }
+            } finally {
+                isProcessing = false;
+                hidePopup("processingPopup");
+            }
+        }
+
+        async function handleBuyTickets() {
+            if (isProcessing) {
+                showProcessingPopup();
+                return;
+            }
+            if (!isWalletConnected) {
+                showErrorPopup("Conecte sua carteira primeiro.");
+                return;
+            }
+            isProcessing = true;
+            showProcessingPopup();
+            try {
+                const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
+                if (!isRaffleOpen) {
+                    showErrorPopup("O sorteio está fechado.");
+                    return;
+                }
+                const alias = xUsername;
+                const quantity = Math.floor(parseFloat(document.getElementById("ticketQuantity").value));
+                if (isNaN(quantity) || quantity < 1 || !Number.isInteger(quantity)) {
+                    showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
+                    return;
+                }
+                if (!alias || !isValidXUsername(alias)) {
+                    showErrorPopup("Username do X inválido. Insira um username válido.");
+                    return;
+                }
+                const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
+                const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
+                console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
+                const tx = await contract.methods.buyTickets(quantity, alias).send({ from: userAddress, value: totalValue });
+                const receipt = await verifyTransaction(tx.transactionHash);
+                console.log("Transação de compra confirmada:", receipt);
+                document.getElementById("winnerMessage").innerText = "Obrigado por ajudar a comunidade Monad. Boa Sorte!";
+                showThanksPopup();
+                cache = { data: null, timestamp: 0, validDuration: 60000 };
+                await updateUI();
+            } catch (error) {
+                console.error("Erro ao comprar tickets:", error);
+                if (error.code === 4001 || error.message.includes("user rejected")) {
+                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
+                } else if (error.message.includes("Raffle is not open")) {
+                    showErrorPopup("O sorteio está fechado.");
+                } else if (error.message.includes("Incorrect total price")) {
+                    showErrorPopup("O valor total enviado está incorreto. Verifique o preço do ticket.");
+                } else {
+                    showErrorPopup("Erro ao processar a compra de tickets. Verifique sua conexão e tente novamente.");
                 }
             } finally {
                 isProcessing = false;
@@ -858,58 +968,6 @@
                 buyButton.classList.add("action-button");
                 buyButton.onclick = debounce(handleBuyTickets, 500);
                 raffleStatus.classList.add("hidden");
-            }
-        }
-
-        async function handleBuyTickets() {
-            if (isProcessing) {
-                showProcessingPopup();
-                return;
-            }
-            if (!isWalletConnected) {
-                showErrorPopup("Conecte sua carteira primeiro.");
-                return;
-            }
-            isProcessing = true;
-            showProcessingPopup();
-            try {
-                const isRaffleOpen = await retryCall(() => contract.methods.isRaffleOpen().call());
-                if (!isRaffleOpen) {
-                    showErrorPopup("O sorteio está fechado.");
-                    return;
-                }
-                const alias = xUsername;
-                const quantity = Math.floor(parseFloat(document.getElementById("ticketQuantity").value));
-                if (isNaN(quantity) || quantity < 1 || !Number.isInteger(quantity)) {
-                    showErrorPopup("Quantidade de tickets inválida. Insira um número inteiro maior ou igual a 1.");
-                    return;
-                }
-                if (!alias || !isValidXUsername(alias)) {
-                    showErrorPopup("Username do X inválido. Insira um username válido.");
-                    return;
-                }
-                const ticketPrice = await retryCall(() => contract.methods.ticketPrice().call());
-                const totalValue = web3.utils.toBN(quantity).mul(web3.utils.toBN(ticketPrice)).toString();
-                console.log("Enviando transação de compra...", { userAddress, quantity, totalValue, alias });
-                const tx = await contract.methods.buyTickets(quantity, alias).send({
-                    from: userAddress,
-                    value: totalValue
-                });
-                console.log("Transação bem-sucedida:", tx);
-                document.getElementById("winnerMessage").innerText = "Obrigado por ajudar a comunidade Monad. Boa Sorte!";
-                showThanksPopup();
-                cache = { data: null, timestamp: 0, validDuration: 60000 };
-                await updateUI();
-            } catch (error) {
-                console.error("Erro ao comprar tickets:", error);
-                if (error.code === 4001 || error.message.includes("user rejected")) {
-                    showErrorPopup("Você cancelou a transação. Autorize para continuar.");
-                } else {
-                    showErrorPopup("Erro ao processar a compra de tickets. Tente novamente.");
-                }
-            } finally {
-                isProcessing = false;
-                hidePopup("processingPopup");
             }
         }
 
