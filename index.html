@@ -312,7 +312,7 @@
         };
         const CONTRACT_ADDRESS = "0x1Fa8151B96adEE65470404EC2F5628CC5ace4058";
         const CONTRACT_ABI = [
-                        {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+            {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
             {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"participant","type":"address"},{"indexed":false,"internalType":"string","name":"newAlias","type":"string"}],"name":"AliasUpdated","type":"event"},
             {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"raffleNumber","type":"uint256"}],"name":"RaffleStarted","type":"event"},
             {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"participant","type":"address"},{"indexed":false,"internalType":"uint256","name":"quantity","type":"uint256"},{"indexed":false,"internalType":"string","name":"_alias","type":"string"}],"name":"TicketPurchased","type":"event"},
@@ -494,19 +494,76 @@
                     showErrorPopup("Nenhum participante para sortear.");
                     return;
                 }
-                const tx = await contract.methods.drawWinner().send({ from: userAddress });
-                console.log("Vencedor sorteado:", tx);
-                const winner = tx.events.WinnerDrawn.returnValues.winner;
+                const initialWinners = await retryCall(() => contract.methods.getPastWinners().call());
+                const initialLastWinner = initialWinners.length > 0 ? initialWinners[initialWinners.length - 1] : null;
+
+                const txPromise = contract.methods.drawWinner().send({ from: userAddress });
+                console.log("Transação de sorteio enviada...");
+
+                let winner = null;
                 let alias = "Desconhecido";
+                const maxAttempts = 30;
+                let attempts = 0;
+
+                const pollInterval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const currentWinners = await retryCall(() => contract.methods.getPastWinners().call());
+                        const currentLastWinner = currentWinners.length > 0 ? currentWinners[currentWinners.length - 1] : null;
+
+                        if (currentLastWinner && currentLastWinner !== initialLastWinner) {
+                            clearInterval(pollInterval);
+                            winner = currentLastWinner;
+                            try {
+                                alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                            } catch (error) {
+                                console.error("Erro ao obter alias do vencedor:", error);
+                            }
+                            document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
+                            showThanksPopup();
+                            cache = { data: null, timestamp: 0, validDuration: 60000 };
+                            await updateUI();
+                            isProcessing = false;
+                            hidePopup("processingPopup");
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            showErrorPopup("Tempo limite atingido. A transação pode não ter sido confirmada.");
+                            isProcessing = false;
+                            hidePopup("processingPopup");
+                        }
+                    } catch (error) {
+                        console.error("Erro ao verificar vencedores:", error);
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            showErrorPopup("Erro ao verificar o vencedor. Tente novamente.");
+                            isProcessing = false;
+                            hidePopup("processingPopup");
+                        }
+                    }
+                }, 1000);
+
                 try {
-                    alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                    const tx = await txPromise;
+                    console.log("Transação de sorteio confirmada:", tx);
+                    if (!winner) {
+                        winner = tx.events.WinnerDrawn.returnValues.winner;
+                        try {
+                            alias = await retryCall(() => contract.methods.getAlias(winner).call());
+                        } catch (error) {
+                            console.error("Erro ao obter alias do vencedor:", error);
+                        }
+                        clearInterval(pollInterval);
+                        document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
+                        showThanksPopup();
+                        cache = { data: null, timestamp: 0, validDuration: 60000 };
+                        await updateUI();
+                        isProcessing = false;
+                        hidePopup("processingPopup");
+                    }
                 } catch (error) {
-                    console.error("Erro ao obter alias do vencedor:", error);
+                    clearInterval(pollInterval);
+                    throw error;
                 }
-                document.getElementById("winnerMessage").innerText = `Vencedor sorteado: ${truncateAddress(winner)} (${alias})`;
-                showThanksPopup();
-                cache = { data: null, timestamp: 0, validDuration: 60000 };
-                await updateUI();
             } catch (error) {
                 console.error("Erro ao sortear vencedor:", error);
                 if (error.code === 4001 || error.message.includes("user rejected")) {
@@ -514,7 +571,6 @@
                 } else {
                     showErrorPopup("Erro ao sortear vencedor. Verifique se você é o dono do contrato.");
                 }
-            } finally {
                 isProcessing = false;
                 hidePopup("processingPopup");
             }
